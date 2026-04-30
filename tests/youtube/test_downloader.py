@@ -82,7 +82,7 @@ class TestGetVideoDuration:
 class TestExtractFrame:
     @patch("youtube_tools_mcp.youtube.downloader.shutil")
     @patch("youtube_tools_mcp.youtube.downloader.subprocess")
-    def test_extracts_frame_successfully(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+    def test_extracts_frame_successfully_no_scale(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
         mock_shutil.which.return_value = "/usr/bin/ffmpeg"
         mock_result = MagicMock()
         mock_result.returncode = 0
@@ -98,9 +98,26 @@ class TestExtractFrame:
         cmd = mock_subprocess.run.call_args[0][0]
         assert cmd[0] == "ffmpeg"
         assert cmd[2] == "10.000"
+        assert "-vf" not in cmd
+
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_extracts_frame_with_max_width(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_subprocess.run.return_value = mock_result
+        mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
+
+        output_path = Path("/tmp/test_frame.jpg")
+        with patch.object(Path, "exists", return_value=True):
+            result = extract_frame("https://stream.url/video.mp4", 10.0, output_path, max_width=800)
+
+        assert result == output_path
+        cmd = mock_subprocess.run.call_args[0][0]
         assert "-vf" in cmd
         scale_val = cmd[cmd.index("-vf") + 1]
-        assert "640" in scale_val
+        assert "800" in scale_val
 
     @patch("youtube_tools_mcp.youtube.downloader.shutil")
     @patch("youtube_tools_mcp.youtube.downloader.subprocess")
@@ -154,7 +171,7 @@ class TestExtractFramesBatch:
     @patch("youtube_tools_mcp.youtube.downloader.shutil")
     def test_extracts_multiple_frames(self, mock_shutil: MagicMock, mock_extract: MagicMock) -> None:
         mock_shutil.which.return_value = "/usr/bin/ffmpeg"
-        mock_extract.side_effect = lambda url, ts, path, max_width=640: path
+        mock_extract.side_effect = lambda url, ts, path, max_width=None, quality=5: path
 
         output_dir = Path("/tmp/frames")
         timestamps = [0.0, 5.0, 10.0]

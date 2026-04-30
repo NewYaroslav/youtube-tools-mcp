@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import base64
 import tempfile
 from pathlib import Path
 
 from mcp.shared.exceptions import McpError
-from mcp.types import INTERNAL_ERROR, CallToolResult, ErrorData, TextContent
+from mcp.types import INTERNAL_ERROR, CallToolResult, ErrorData, ImageContent, TextContent
 
 from youtube_tools_mcp.utils.url import extract_video_id
 from youtube_tools_mcp.youtube.downloader import (
@@ -23,6 +24,11 @@ def _err(msg: str) -> McpError:
     return McpError(ErrorData(code=INTERNAL_ERROR, message=msg))
 
 
+def _image_content(path: Path) -> ImageContent:
+    data = base64.b64encode(path.read_bytes()).decode()
+    return ImageContent(type="image", data=data, mimeType="image/jpeg")
+
+
 def _format_timestamp(seconds: float) -> str:
     m, s = divmod(int(seconds), 60)
     h, m = divmod(m, 60)
@@ -31,47 +37,63 @@ def _format_timestamp(seconds: float) -> str:
     return f"{m:02d}:{s:02d}"
 
 
+def _cleanup_dir(path: Path) -> None:
+    if path.exists():
+        for f in path.iterdir():
+            f.unlink(missing_ok=True)
+
+
 def _frames_result_text(
     paths: list[Path],
     timestamps: list[float],
     video_id: str,
     output_dir: Path,
 ) -> TextContent:
-    lines = ["STOP: Do NOT Read these frame files."]
-    lines.append("Reading multiple images fills the context window and freezes the session.")
-    lines.append(
-        "Copy frames to your project assets folder, embed as links, and write captions from transcript context."
-    )
-    lines.append("If you must inspect one specific frame, Read ONLY that single file.")
-    lines.append("")
-    lines.append(f"Extracted {len(paths)} frame(s) from video {video_id}")
+    lines = [f"Extracted {len(paths)} frame(s) from video {video_id}"]
     lines.append(f"Output directory: {output_dir}")
     lines.append("")
     lines.append("Frame files:")
     for p, ts in zip(paths, timestamps, strict=True):
         lines.append(f"  [{_format_timestamp(ts)}] {p}")
+    lines.append("")
+    lines.append(
+        "Note: If your model does not support vision, do NOT Read frame files. "
+        "Embed as links with captions from transcript context instead. "
+        "If your model supports vision, you may Read individual frames to inspect them."
+    )
     return TextContent(type="text", text="\n".join(lines))
+
+
+def _get_save_dir(output_dir: str | None, video_id: str) -> Path:
+    save_dir = Path(output_dir) if output_dir else _DEFAULT_OUTPUT_DIR / video_id
+    save_dir.mkdir(parents=True, exist_ok=True)
+    return save_dir
 
 
 def extract_video_frame(
     url_or_id: str,
     timestamp: float,
     output_dir: str | None = None,
-    max_width: int = 640,
+    max_width: int | None = None,
+    jpeg_quality: int = 5,
+    return_images: bool = False,
 ) -> CallToolResult:
     """Extract a single frame from a YouTube video at a specific timestamp.
 
-    Saves frame as a JPEG file and returns the file path (not inline image).
-    Requires ffmpeg to be installed on the system.
+    By default saves frame as JPEG file and returns the file path.
+    Set return_images=True to get inline base64 image data instead
+    (for vision-capable models like Claude or GPT-4o).
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         timestamp: Timestamp in seconds (e.g., 195.0 for 3:15).
         output_dir: Directory to save frame. Defaults to system temp/yt-frames.
-        max_width: Maximum frame width in pixels. Defaults to 640.
+        max_width: Maximum frame width in pixels. None = original size.
+        jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
+        return_images: True = return inline images (vision models), False = file paths.
 
     Returns:
-        MCP result with file path and timestamp for the extracted frame.
+        MCP result with either TextContent (file path) or ImageContent (inline).
     """
     try:
         video_id = extract_video_id(url_or_id)
@@ -83,37 +105,54 @@ def extract_video_frame(
     except DownloadError as exc:
         raise _err(f"Failed to get stream URL: {exc}") from exc
 
-    save_dir = Path(output_dir) if output_dir else _DEFAULT_OUTPUT_DIR / video_id
-    save_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        out_path = save_dir / f"frame_{timestamp:.0f}.jpg"
-        extract_frame(stream_url, timestamp, out_path, max_width=max_width)
-        return CallToolResult(content=[_frames_result_text([out_path], [timestamp], video_id, save_dir)])
-    except FFmpegNotFoundError as exc:
-        raise _err(str(exc)) from exc
-    except DownloadError as exc:
-        raise _err(f"Frame extraction failed: {exc}") from exc
+    if return_images:
+        tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frame_"))
+        try:
+            out_path = tmp_dir / "frame.jpg"
+            extract_frame(stream_url, timestamp, out_path, max_width=max_width, quality=jpeg_quality)
+            return CallToolResult(content=[_image_content(out_path)])
+        except FFmpegNotFoundError as exc:
+            raise _err(str(exc)) from exc
+        except DownloadError as exc:
+            raise _err(f"Frame extraction failed: {exc}") from exc
+        finally:
+            _cleanup_dir(tmp_dir)
+    else:
+        save_dir = _get_save_dir(output_dir, video_id)
+        try:
+            out_path = save_dir / f"frame_{timestamp:.0f}.jpg"
+            extract_frame(stream_url, timestamp, out_path, max_width=max_width, quality=jpeg_quality)
+            return CallToolResult(content=[_frames_result_text([out_path], [timestamp], video_id, save_dir)])
+        except FFmpegNotFoundError as exc:
+            raise _err(str(exc)) from exc
+        except DownloadError as exc:
+            raise _err(f"Frame extraction failed: {exc}") from exc
 
 
 def extract_video_frames(
     url_or_id: str,
     timestamps: list[float],
     output_dir: str | None = None,
-    max_width: int = 640,
+    max_width: int | None = None,
+    jpeg_quality: int = 5,
+    return_images: bool = False,
 ) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
-    Saves frames as JPEG files and returns file paths (not inline images).
-    Requires ffmpeg to be installed on the system. Maximum 30 frames per call.
+    By default saves frames as JPEG files and returns file paths.
+    Set return_images=True to get inline base64 image data instead
+    (for vision-capable models). Maximum 30 frames per call.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         timestamps: List of timestamps in seconds.
         output_dir: Directory to save frames. Defaults to system temp/yt-frames.
-        max_width: Maximum frame width in pixels. Defaults to 640.
+        max_width: Maximum frame width in pixels. None = original size.
+        jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
+        return_images: True = return inline images (vision models), False = file paths.
 
     Returns:
-        MCP result with file paths and timestamps for each extracted frame.
+        MCP result with either TextContent (file paths) or ImageContent list (inline).
     """
     if len(timestamps) > _MAX_FRAMES:
         raise _err(f"Too many timestamps ({len(timestamps)}), maximum is {_MAX_FRAMES}")
@@ -128,15 +167,26 @@ def extract_video_frames(
     except DownloadError as exc:
         raise _err(f"Failed to get stream URL: {exc}") from exc
 
-    save_dir = Path(output_dir) if output_dir else _DEFAULT_OUTPUT_DIR / video_id
-    save_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        paths = extract_frames_batch(stream_url, timestamps, save_dir, max_width=max_width)
-        return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
-    except FFmpegNotFoundError as exc:
-        raise _err(str(exc)) from exc
-    except DownloadError as exc:
-        raise _err(f"Frame extraction failed: {exc}") from exc
+    if return_images:
+        tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frames_"))
+        try:
+            paths = extract_frames_batch(stream_url, timestamps, tmp_dir, max_width=max_width, quality=jpeg_quality)
+            return CallToolResult(content=[_image_content(p) for p in paths])
+        except FFmpegNotFoundError as exc:
+            raise _err(str(exc)) from exc
+        except DownloadError as exc:
+            raise _err(f"Frame extraction failed: {exc}") from exc
+        finally:
+            _cleanup_dir(tmp_dir)
+    else:
+        save_dir = _get_save_dir(output_dir, video_id)
+        try:
+            paths = extract_frames_batch(stream_url, timestamps, save_dir, max_width=max_width, quality=jpeg_quality)
+            return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
+        except FFmpegNotFoundError as exc:
+            raise _err(str(exc)) from exc
+        except DownloadError as exc:
+            raise _err(f"Frame extraction failed: {exc}") from exc
 
 
 def extract_frames_every(
@@ -144,22 +194,27 @@ def extract_frames_every(
     interval_sec: float = 30.0,
     max_frames: int = 10,
     output_dir: str | None = None,
-    max_width: int = 640,
+    max_width: int | None = None,
+    jpeg_quality: int = 5,
+    return_images: bool = False,
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
-    Saves frames as JPEG files and returns file paths (not inline images).
-    Requires ffmpeg to be installed on the system. Maximum 30 frames per call.
+    By default saves frames as JPEG files and returns file paths.
+    Set return_images=True to get inline base64 image data instead
+    (for vision-capable models). Maximum 30 frames per call.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         interval_sec: Interval between frames in seconds. Defaults to 30.
         max_frames: Maximum number of frames to extract. Defaults to 10, max 30.
         output_dir: Directory to save frames. Defaults to system temp/yt-frames.
-        max_width: Maximum frame width in pixels. Defaults to 640.
+        max_width: Maximum frame width in pixels. None = original size.
+        jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
+        return_images: True = return inline images (vision models), False = file paths.
 
     Returns:
-        MCP result with file paths and timestamps for each extracted frame.
+        MCP result with either TextContent (file paths) or ImageContent list (inline).
     """
     if max_frames > _MAX_FRAMES:
         raise _err(f"max_frames ({max_frames}) exceeds limit ({_MAX_FRAMES})")
@@ -182,12 +237,23 @@ def extract_frames_every(
 
     timestamps = [i * interval_sec for i in range(count)]
 
-    save_dir = Path(output_dir) if output_dir else _DEFAULT_OUTPUT_DIR / video_id
-    save_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        paths = extract_frames_batch(stream_url, timestamps, save_dir, max_width=max_width)
-        return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
-    except FFmpegNotFoundError as exc:
-        raise _err(str(exc)) from exc
-    except DownloadError as exc:
-        raise _err(f"Frame extraction failed: {exc}") from exc
+    if return_images:
+        tmp_dir = Path(tempfile.mkdtemp(prefix="yt_interval_"))
+        try:
+            paths = extract_frames_batch(stream_url, timestamps, tmp_dir, max_width=max_width, quality=jpeg_quality)
+            return CallToolResult(content=[_image_content(p) for p in paths])
+        except FFmpegNotFoundError as exc:
+            raise _err(str(exc)) from exc
+        except DownloadError as exc:
+            raise _err(f"Frame extraction failed: {exc}") from exc
+        finally:
+            _cleanup_dir(tmp_dir)
+    else:
+        save_dir = _get_save_dir(output_dir, video_id)
+        try:
+            paths = extract_frames_batch(stream_url, timestamps, save_dir, max_width=max_width, quality=jpeg_quality)
+            return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
+        except FFmpegNotFoundError as exc:
+            raise _err(str(exc)) from exc
+        except DownloadError as exc:
+            raise _err(f"Frame extraction failed: {exc}") from exc

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from mcp.shared.exceptions import McpError
-from mcp.types import CallToolResult, TextContent
+from mcp.types import CallToolResult, ImageContent, TextContent
 
 from youtube_tools_mcp.tools.frames import (
     extract_frames_every,
@@ -26,7 +26,7 @@ _SAMPLE_STREAM_URL = "https://stream.example.com/video.mp4"
 class TestExtractVideoFrame:
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
-    def test_returns_text_with_file_path(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+    def test_returns_text_with_file_path_by_default(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
@@ -39,9 +39,27 @@ class TestExtractVideoFrame:
         assert isinstance(result, CallToolResult)
         assert len(result.content) == 1
         assert isinstance(result.content[0], TextContent)
-        assert "Extracted 1 frame" in result.content[0].text
+        assert "Extracted 1 frame(s)" in result.content[0].text
         assert "frame_10.jpg" in result.content[0].text
-        assert "STOP" in result.content[0].text
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_returns_inline_image_when_return_images_true(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch("youtube_tools_mcp.tools.frames.tempfile.mkdtemp", return_value="/tmp/yt"),
+            patch.object(Path, "read_bytes", return_value=b"\xff\xd8fake_jpeg"),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "iterdir", return_value=[]),
+        ):
+            result = extract_video_frame(SAMPLE_VIDEO_ID, 10.0, return_images=True)
+
+        assert isinstance(result, CallToolResult)
+        assert len(result.content) == 1
+        assert isinstance(result.content[0], ImageContent)
+        assert result.content[0].mimeType == "image/jpeg"
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
@@ -82,7 +100,7 @@ class TestExtractVideoFrame:
 class TestExtractVideoFrames:
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
-    def test_returns_text_with_file_paths(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+    def test_returns_text_with_file_paths_by_default(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
@@ -99,7 +117,24 @@ class TestExtractVideoFrames:
         assert "frame_0000.jpg" in result.content[0].text
         assert "frame_0001.jpg" in result.content[0].text
         assert "frame_0002.jpg" in result.content[0].text
-        assert "STOP" in result.content[0].text
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_returns_inline_images_when_return_images_true(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch("youtube_tools_mcp.tools.frames.tempfile.mkdtemp", return_value="/tmp/yt"),
+            patch.object(Path, "read_bytes", return_value=b"\xff\xd8jpeg"),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "iterdir", return_value=[]),
+        ):
+            result = extract_video_frames(SAMPLE_VIDEO_ID, [0.0, 5.0], return_images=True)
+
+        assert isinstance(result, CallToolResult)
+        assert len(result.content) == 2
+        assert all(isinstance(c, ImageContent) for c in result.content)
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
@@ -136,7 +171,7 @@ class TestExtractVideoFrames:
 class TestExtractFramesEvery:
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
-    def test_returns_text_with_file_paths(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+    def test_returns_text_with_file_paths_by_default(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
@@ -150,7 +185,24 @@ class TestExtractFramesEvery:
         assert len(result.content) == 1
         assert isinstance(result.content[0], TextContent)
         assert "Extracted 4 frame(s)" in result.content[0].text
-        assert "STOP" in result.content[0].text
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_returns_inline_images_when_return_images_true(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch("youtube_tools_mcp.tools.frames.tempfile.mkdtemp", return_value="/tmp/yt"),
+            patch.object(Path, "read_bytes", return_value=b"\xff\xd8jpeg"),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "iterdir", return_value=[]),
+        ):
+            result = extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, max_frames=3, return_images=True)
+
+        assert isinstance(result, CallToolResult)
+        assert len(result.content) == 3
+        assert all(isinstance(c, ImageContent) for c in result.content)
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")

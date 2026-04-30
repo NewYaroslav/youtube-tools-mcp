@@ -78,20 +78,25 @@ def extract_video_frame(
     url_or_id: str,
     timestamp: float,
     output_dir: str | None = None,
-    max_width: int = 640,
+    max_width: int | None = None,
+    jpeg_quality: int = 5,
+    return_images: bool = False,
 ) -> CallToolResult:
     """Extract a single frame from a YouTube video at a specific timestamp.
 
-    Saves frame as a JPEG file and returns the file path (not inline image).
+    By default saves frame as JPEG and returns the file path.
+    Set return_images=True to return inline image data (for vision-capable models).
     Requires ffmpeg to be installed on the system.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         timestamp: Timestamp in seconds (e.g., 195.0 for 3:15).
         output_dir: Directory to save frame. Defaults to system temp/yt-frames.
-        max_width: Maximum frame width in pixels. Defaults to 640.
+        max_width: Maximum frame width in pixels. None = original size.
+        jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
+        return_images: True = inline images (vision models), False = file paths.
     """
-    return _extract_video_frame(url_or_id, timestamp, output_dir, max_width)
+    return _extract_video_frame(url_or_id, timestamp, output_dir, max_width, jpeg_quality, return_images)
 
 
 @mcp.tool()
@@ -99,21 +104,25 @@ def extract_video_frames(
     url_or_id: str,
     timestamps: list[float],
     output_dir: str | None = None,
-    max_width: int = 640,
+    max_width: int | None = None,
+    jpeg_quality: int = 5,
+    return_images: bool = False,
 ) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
-    Saves frames as JPEG files and returns file paths (not inline images).
-    Do NOT Read all frames at once — insert markdown links instead.
+    By default saves frames as JPEG files and returns file paths.
+    Set return_images=True to return inline image data (for vision-capable models).
     Requires ffmpeg to be installed on the system. Maximum 30 frames per call.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         timestamps: List of timestamps in seconds.
         output_dir: Directory to save frames. Defaults to system temp/yt-frames.
-        max_width: Maximum frame width in pixels. Defaults to 640.
+        max_width: Maximum frame width in pixels. None = original size.
+        jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
+        return_images: True = inline images (vision models), False = file paths.
     """
-    return _extract_video_frames(url_or_id, timestamps, output_dir, max_width)
+    return _extract_video_frames(url_or_id, timestamps, output_dir, max_width, jpeg_quality, return_images)
 
 
 @mcp.tool()
@@ -122,12 +131,14 @@ def extract_frames_every(
     interval_sec: float = 30.0,
     max_frames: int = 10,
     output_dir: str | None = None,
-    max_width: int = 640,
+    max_width: int | None = None,
+    jpeg_quality: int = 5,
+    return_images: bool = False,
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
-    Saves frames as JPEG files and returns file paths (not inline images).
-    Do NOT Read all frames at once — insert markdown links instead.
+    By default saves frames as JPEG files and returns file paths.
+    Set return_images=True to return inline image data (for vision-capable models).
     Requires ffmpeg to be installed on the system. Maximum 30 frames per call.
 
     Args:
@@ -135,9 +146,19 @@ def extract_frames_every(
         interval_sec: Interval between frames in seconds. Defaults to 30.
         max_frames: Maximum number of frames to extract. Defaults to 10, max 30.
         output_dir: Directory to save frames. Defaults to system temp/yt-frames.
-        max_width: Maximum frame width in pixels. Defaults to 640.
+        max_width: Maximum frame width in pixels. None = original size.
+        jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
+        return_images: True = inline images (vision models), False = file paths.
     """
-    return _extract_frames_every(url_or_id, interval_sec, max_frames, output_dir, max_width)
+    return _extract_frames_every(
+        url_or_id,
+        interval_sec,
+        max_frames,
+        output_dir,
+        max_width,
+        jpeg_quality,
+        return_images,
+    )
 
 
 @mcp.tool()
