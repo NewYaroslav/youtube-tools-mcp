@@ -94,11 +94,17 @@ def get_video_duration(video_id: str) -> float:
     return float(duration)
 
 
-def extract_frame(stream_url: str, timestamp: float, output_path: Path) -> Path:
+def extract_frame(
+    stream_url: str,
+    timestamp: float,
+    output_path: Path,
+    max_width: int = 1280,
+) -> Path:
     """Extract a single frame from a video stream at the given timestamp.
 
     Uses ffmpeg with input seeking (-ss before -i) for fast random access.
     Requires a direct (progressive) stream URL, not a DASH manifest.
+    Frames are downscaled to max_width to keep file size small.
     """
     _check_ffmpeg()
 
@@ -110,6 +116,8 @@ def extract_frame(stream_url: str, timestamp: float, output_path: Path) -> Path:
         stream_url,
         "-frames:v",
         "1",
+        "-vf",
+        f"scale='min({max_width},iw)':-2",
         "-q:v",
         "5",
         "-y",
@@ -134,11 +142,13 @@ def extract_frames_batch(
     stream_url: str,
     timestamps: list[float],
     output_dir: Path,
+    max_width: int = 1280,
 ) -> list[Path]:
     """Extract frames at multiple timestamps from a video stream.
 
     Returns list of paths to JPEG files in order of timestamps.
     Stops on first error to avoid long-running cascading failures.
+    Frames are downscaled to max_width to keep file size small.
     """
     _check_ffmpeg()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -146,7 +156,7 @@ def extract_frames_batch(
     paths: list[Path] = []
     for i, ts in enumerate(timestamps):
         out_path = output_dir / f"frame_{i:04d}.jpg"
-        extract_frame(stream_url, ts, out_path)
+        extract_frame(stream_url, ts, out_path, max_width=max_width)
         paths.append(out_path)
 
     return paths

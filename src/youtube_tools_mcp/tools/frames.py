@@ -57,21 +57,27 @@ def _frames_result_text(
         lines.append(f"  [{_format_timestamp(ts)}] {p}")
     lines.append("")
     lines.append(
-        "Tip: Read individual frames with the Read tool to view them. "
-        "Do NOT read all frames at once to avoid filling the context window."
+        "IMPORTANT: Do NOT use Read on all frames at once — "
+        "images will fill the context window and freeze the session. "
+        "Instead: copy frames to your project assets folder, "
+        "insert markdown image links like ![desc](path), "
+        "and add captions based on transcript timestamps. "
+        "If you must view a specific frame, Read only ONE at a time."
     )
     return TextContent(type="text", text="\n".join(lines))
 
 
-def extract_video_frame(url_or_id: str, timestamp: float) -> CallToolResult:
+def extract_video_frame(url_or_id: str, timestamp: float, max_width: int = 1280) -> CallToolResult:
     """Extract a single frame from a YouTube video at a specific timestamp.
 
     Gets a direct stream URL via yt-dlp, then uses ffmpeg to seek and extract.
     Uses progressive mp4 format so ffmpeg can seek without downloading.
+    Frame is downscaled to max_width to keep context usage low.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         timestamp: Timestamp in seconds (e.g., 195.0 for 3:15).
+        max_width: Maximum frame width in pixels. Defaults to 1280.
 
     Returns:
         MCP result containing a JPEG image of the frame.
@@ -89,7 +95,7 @@ def extract_video_frame(url_or_id: str, timestamp: float) -> CallToolResult:
     tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frame_"))
     try:
         out_path = tmp_dir / "frame.jpg"
-        extract_frame(stream_url, timestamp, out_path)
+        extract_frame(stream_url, timestamp, out_path, max_width=max_width)
         return CallToolResult(content=[_image_content(out_path)])
     except FFmpegNotFoundError as exc:
         raise _err(str(exc)) from exc
@@ -103,16 +109,18 @@ def extract_video_frames(
     url_or_id: str,
     timestamps: list[float],
     output_dir: str | None = None,
+    max_width: int = 1280,
 ) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
     Saves frames as JPEG files to output_dir and returns file paths.
-    Use the Read tool on individual frame files to view them.
+    Frames are downscaled to max_width to keep file size small.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         timestamps: List of timestamps in seconds.
         output_dir: Directory to save frames. Defaults to system temp/yt-frames.
+        max_width: Maximum frame width in pixels. Defaults to 1280.
 
     Returns:
         MCP result with file paths and timestamps for each extracted frame.
@@ -133,7 +141,7 @@ def extract_video_frames(
     save_dir = Path(output_dir) if output_dir else _DEFAULT_OUTPUT_DIR / video_id
     save_dir.mkdir(parents=True, exist_ok=True)
     try:
-        paths = extract_frames_batch(stream_url, timestamps, save_dir)
+        paths = extract_frames_batch(stream_url, timestamps, save_dir, max_width=max_width)
         return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
     except FFmpegNotFoundError as exc:
         raise _err(str(exc)) from exc
@@ -146,17 +154,19 @@ def extract_frames_every(
     interval_sec: float = 30.0,
     max_frames: int = 10,
     output_dir: str | None = None,
+    max_width: int = 1280,
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
     Saves frames as JPEG files to output_dir and returns file paths.
-    Use the Read tool on individual frame files to view them.
+    Frames are downscaled to max_width to keep file size small.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         interval_sec: Interval between frames in seconds. Defaults to 30.
         max_frames: Maximum number of frames to extract. Defaults to 10, max 30.
         output_dir: Directory to save frames. Defaults to system temp/yt-frames.
+        max_width: Maximum frame width in pixels. Defaults to 1280.
 
     Returns:
         MCP result with file paths and timestamps for each extracted frame.
@@ -185,7 +195,7 @@ def extract_frames_every(
     save_dir = Path(output_dir) if output_dir else _DEFAULT_OUTPUT_DIR / video_id
     save_dir.mkdir(parents=True, exist_ok=True)
     try:
-        paths = extract_frames_batch(stream_url, timestamps, save_dir)
+        paths = extract_frames_batch(stream_url, timestamps, save_dir, max_width=max_width)
         return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
     except FFmpegNotFoundError as exc:
         raise _err(str(exc)) from exc
