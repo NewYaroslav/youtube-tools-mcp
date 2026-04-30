@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 from mcp.shared.exceptions import McpError
-from mcp.types import INTERNAL_ERROR, CallToolResult, ErrorData, ImageContent
+from mcp.types import INTERNAL_ERROR, CallToolResult, ErrorData, ImageContent, TextContent
 
 from youtube_tools_mcp.utils.url import extract_video_id
 from youtube_tools_mcp.youtube.downloader import (
@@ -17,6 +17,7 @@ from youtube_tools_mcp.youtube.downloader import (
 )
 
 _MAX_FRAMES = 30
+_DEFAULT_OUTPUT_DIR = Path(tempfile.gettempdir()) / "yt-frames"
 
 
 def _err(msg: str) -> McpError:
@@ -32,6 +33,34 @@ def _cleanup_dir(path: Path) -> None:
     if path.exists():
         for f in path.iterdir():
             f.unlink(missing_ok=True)
+
+
+def _format_timestamp(seconds: float) -> str:
+    m, s = divmod(int(seconds), 60)
+    h, m = divmod(m, 60)
+    if h:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m:02d}:{s:02d}"
+
+
+def _frames_result_text(
+    paths: list[Path],
+    timestamps: list[float],
+    video_id: str,
+    output_dir: Path,
+) -> TextContent:
+    lines = [f"Extracted {len(paths)} frames from video {video_id}"]
+    lines.append(f"Output directory: {output_dir}")
+    lines.append("")
+    lines.append("Frames (use Read tool or open in viewer):")
+    for p, ts in zip(paths, timestamps, strict=True):
+        lines.append(f"  [{_format_timestamp(ts)}] {p}")
+    lines.append("")
+    lines.append(
+        "Tip: Read individual frames with the Read tool to view them. "
+        "Do NOT read all frames at once to avoid filling the context window."
+    )
+    return TextContent(type="text", text="\n".join(lines))
 
 
 def extract_video_frame(url_or_id: str, timestamp: float) -> CallToolResult:
@@ -70,17 +99,23 @@ def extract_video_frame(url_or_id: str, timestamp: float) -> CallToolResult:
         _cleanup_dir(tmp_dir)
 
 
-def extract_video_frames(url_or_id: str, timestamps: list[float]) -> CallToolResult:
+def extract_video_frames(
+    url_or_id: str,
+    timestamps: list[float],
+    output_dir: str | None = None,
+) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
-    Gets a single stream URL and extracts all frames from it.
+    Saves frames as JPEG files to output_dir and returns file paths.
+    Use the Read tool on individual frame files to view them.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         timestamps: List of timestamps in seconds.
+        output_dir: Directory to save frames. Defaults to system temp/yt-frames.
 
     Returns:
-        MCP result containing JPEG images for each timestamp.
+        MCP result with file paths and timestamps for each extracted frame.
     """
     if len(timestamps) > _MAX_FRAMES:
         raise _err(f"Too many timestamps ({len(timestamps)}), maximum is {_MAX_FRAMES}")
@@ -95,34 +130,36 @@ def extract_video_frames(url_or_id: str, timestamps: list[float]) -> CallToolRes
     except DownloadError as exc:
         raise _err(f"Failed to get stream URL: {exc}") from exc
 
-    tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frames_"))
+    save_dir = Path(output_dir) if output_dir else _DEFAULT_OUTPUT_DIR / video_id
+    save_dir.mkdir(parents=True, exist_ok=True)
     try:
-        paths = extract_frames_batch(stream_url, timestamps, tmp_dir)
-        return CallToolResult(content=[_image_content(p) for p in paths])
+        paths = extract_frames_batch(stream_url, timestamps, save_dir)
+        return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
     except FFmpegNotFoundError as exc:
         raise _err(str(exc)) from exc
     except DownloadError as exc:
         raise _err(f"Frame extraction failed: {exc}") from exc
-    finally:
-        _cleanup_dir(tmp_dir)
 
 
 def extract_frames_every(
     url_or_id: str,
     interval_sec: float = 30.0,
     max_frames: int = 10,
+    output_dir: str | None = None,
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
-    Gets stream URL and duration in a single yt-dlp call, then extracts frames.
+    Saves frames as JPEG files to output_dir and returns file paths.
+    Use the Read tool on individual frame files to view them.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         interval_sec: Interval between frames in seconds. Defaults to 30.
         max_frames: Maximum number of frames to extract. Defaults to 10, max 30.
+        output_dir: Directory to save frames. Defaults to system temp/yt-frames.
 
     Returns:
-        MCP result containing JPEG images at regular intervals.
+        MCP result with file paths and timestamps for each extracted frame.
     """
     if max_frames > _MAX_FRAMES:
         raise _err(f"max_frames ({max_frames}) exceeds limit ({_MAX_FRAMES})")
@@ -145,13 +182,12 @@ def extract_frames_every(
 
     timestamps = [i * interval_sec for i in range(count)]
 
-    tmp_dir = Path(tempfile.mkdtemp(prefix="yt_interval_"))
+    save_dir = Path(output_dir) if output_dir else _DEFAULT_OUTPUT_DIR / video_id
+    save_dir.mkdir(parents=True, exist_ok=True)
     try:
-        paths = extract_frames_batch(stream_url, timestamps, tmp_dir)
-        return CallToolResult(content=[_image_content(p) for p in paths])
+        paths = extract_frames_batch(stream_url, timestamps, save_dir)
+        return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
     except FFmpegNotFoundError as exc:
         raise _err(str(exc)) from exc
     except DownloadError as exc:
         raise _err(f"Frame extraction failed: {exc}") from exc
-    finally:
-        _cleanup_dir(tmp_dir)

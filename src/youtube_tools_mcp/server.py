@@ -87,16 +87,23 @@ def extract_video_frame(url_or_id: str, timestamp: float) -> CallToolResult:
 
 
 @mcp.tool()
-def extract_video_frames(url_or_id: str, timestamps: list[float]) -> CallToolResult:
+def extract_video_frames(
+    url_or_id: str,
+    timestamps: list[float],
+    output_dir: str | None = None,
+) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
+    Saves frames as JPEG files and returns file paths (not inline images).
+    Use the Read tool on individual frame files to view them.
     Requires ffmpeg to be installed on the system. Maximum 30 frames per call.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         timestamps: List of timestamps in seconds.
+        output_dir: Directory to save frames. Defaults to system temp/yt-frames.
     """
-    return _extract_video_frames(url_or_id, timestamps)
+    return _extract_video_frames(url_or_id, timestamps, output_dir)
 
 
 @mcp.tool()
@@ -104,17 +111,21 @@ def extract_frames_every(
     url_or_id: str,
     interval_sec: float = 30.0,
     max_frames: int = 10,
+    output_dir: str | None = None,
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
+    Saves frames as JPEG files and returns file paths (not inline images).
+    Use the Read tool on individual frame files to view them.
     Requires ffmpeg to be installed on the system. Maximum 30 frames per call.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         interval_sec: Interval between frames in seconds. Defaults to 30.
         max_frames: Maximum number of frames to extract. Defaults to 10, max 30.
+        output_dir: Directory to save frames. Defaults to system temp/yt-frames.
     """
-    return _extract_frames_every(url_or_id, interval_sec, max_frames)
+    return _extract_frames_every(url_or_id, interval_sec, max_frames, output_dir)
 
 
 @mcp.tool()
