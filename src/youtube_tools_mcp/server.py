@@ -19,6 +19,7 @@ from youtube_tools_mcp.tools.frames import (
 from youtube_tools_mcp.tools.frames import (
     extract_video_frames as _extract_video_frames,
 )
+from youtube_tools_mcp.tools.images import analyze_image_file as _analyze_image_file
 from youtube_tools_mcp.tools.images import read_image_file as _read_image_file
 from youtube_tools_mcp.tools.transcript import get_youtube_transcript as _get_youtube_transcript
 
@@ -82,6 +83,9 @@ def extract_video_frame(
     max_width: int | None = None,
     jpeg_quality: int = 5,
     return_images: bool = False,
+    vision_analysis: bool = False,
+    vision_prompt: str | None = None,
+    vision_model: str | None = None,
 ) -> CallToolResult:
     """Extract a single frame from a YouTube video at a specific timestamp.
 
@@ -96,8 +100,21 @@ def extract_video_frame(
         max_width: Maximum frame width in pixels. None = original size.
         jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
         return_images: True = inline images (vision models), False = file paths.
+        vision_analysis: True = return text description from configured vision model.
+        vision_prompt: Optional prompt for vision analysis.
+        vision_model: Optional model override for vision analysis.
     """
-    return _extract_video_frame(url_or_id, timestamp, output_dir, max_width, jpeg_quality, return_images)
+    return _extract_video_frame(
+        url_or_id,
+        timestamp,
+        output_dir,
+        max_width,
+        jpeg_quality,
+        return_images,
+        vision_analysis,
+        vision_prompt,
+        vision_model,
+    )
 
 
 @mcp.tool()
@@ -108,6 +125,9 @@ def extract_video_frames(
     max_width: int | None = None,
     jpeg_quality: int = 5,
     return_images: bool = False,
+    vision_analysis: bool = False,
+    vision_prompt: str | None = None,
+    vision_model: str | None = None,
 ) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
@@ -122,8 +142,21 @@ def extract_video_frames(
         max_width: Maximum frame width in pixels. None = original size.
         jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
         return_images: True = inline images (vision models), False = file paths.
+        vision_analysis: True = return text descriptions from configured vision model.
+        vision_prompt: Optional prompt for vision analysis.
+        vision_model: Optional model override for vision analysis.
     """
-    return _extract_video_frames(url_or_id, timestamps, output_dir, max_width, jpeg_quality, return_images)
+    return _extract_video_frames(
+        url_or_id,
+        timestamps,
+        output_dir,
+        max_width,
+        jpeg_quality,
+        return_images,
+        vision_analysis,
+        vision_prompt,
+        vision_model,
+    )
 
 
 @mcp.tool()
@@ -135,6 +168,9 @@ def extract_frames_every(
     max_width: int | None = None,
     jpeg_quality: int = 5,
     return_images: bool = False,
+    vision_analysis: bool = False,
+    vision_prompt: str | None = None,
+    vision_model: str | None = None,
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
@@ -150,6 +186,9 @@ def extract_frames_every(
         max_width: Maximum frame width in pixels. None = original size.
         jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
         return_images: True = inline images (vision models), False = file paths.
+        vision_analysis: True = return text descriptions from configured vision model.
+        vision_prompt: Optional prompt for vision analysis.
+        vision_model: Optional model override for vision analysis.
     """
     return _extract_frames_every(
         url_or_id,
@@ -159,20 +198,43 @@ def extract_frames_every(
         max_width,
         jpeg_quality,
         return_images,
+        vision_analysis,
+        vision_prompt,
+        vision_model,
     )
 
 
 @mcp.tool()
-def read_image_file(path: str) -> CallToolResult:
-    """Read a local image file and return inline image data for vision-capable models.
+def read_image_file(
+    path: str,
+    vision_analysis: bool = False,
+    vision_prompt: str | None = None,
+    vision_model: str | None = None,
+) -> CallToolResult:
+    """Read a local image file as inline image data or text analysis.
 
-    Use this when the built-in Read tool cannot render an image path.
+    Use vision_analysis=True when MCP image results are visible in UI but not passed to the model.
     Supports Unicode paths, including Cyrillic filenames and directories.
 
     Args:
         path: Local image file path (.jpg, .jpeg, .png, .gif, .webp).
+        vision_analysis: True = return text description from configured vision model.
+        vision_prompt: Optional prompt for vision analysis.
+        vision_model: Optional model override for vision analysis.
     """
-    return _read_image_file(path)
+    return _read_image_file(path, vision_analysis, vision_prompt, vision_model)
+
+
+@mcp.tool()
+def analyze_image_file(path: str, prompt: str | None = None, model: str | None = None) -> CallToolResult:
+    """Analyze a local image file with a configured vision model and return text.
+
+    Args:
+        path: Local image file path (.jpg, .jpeg, .png, .gif, .webp).
+        prompt: Optional analysis prompt.
+        model: Optional vision model override.
+    """
+    return _analyze_image_file(path, prompt, model)
 
 
 @mcp.tool()

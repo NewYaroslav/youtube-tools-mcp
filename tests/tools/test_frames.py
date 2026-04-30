@@ -63,6 +63,28 @@ class TestExtractVideoFrame:
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
+    def test_returns_vision_analysis_when_enabled(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch("youtube_tools_mcp.tools.frames.tempfile.mkdtemp", return_value="/tmp/yt"),
+            patch("youtube_tools_mcp.tools.frames.analyze_image_path", return_value="A visible scene"),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "iterdir", return_value=[]),
+        ):
+            result = extract_video_frame(SAMPLE_VIDEO_ID, 10.0, vision_analysis=True)
+
+        assert isinstance(result.content[0], TextContent)
+        assert "Analyzed 1 frame(s)" in result.content[0].text
+        assert "A visible scene" in result.content[0].text
+
+    def test_vision_analysis_conflicts_with_return_images(self) -> None:
+        with pytest.raises(McpError, match="vision_analysis cannot be combined"):
+            extract_video_frame(SAMPLE_VIDEO_ID, 10.0, return_images=True, vision_analysis=True)
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
     def test_custom_output_dir(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
         mock_run.return_value = MagicMock(returncode=0)
 
@@ -138,6 +160,25 @@ class TestExtractVideoFrames:
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
+    def test_returns_vision_analysis_when_enabled(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch("youtube_tools_mcp.tools.frames.tempfile.mkdtemp", return_value="/tmp/yt"),
+            patch("youtube_tools_mcp.tools.frames.analyze_image_path", side_effect=["First frame", "Second frame"]),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "iterdir", return_value=[]),
+        ):
+            result = extract_video_frames(SAMPLE_VIDEO_ID, [0.0, 5.0], vision_analysis=True)
+
+        assert isinstance(result.content[0], TextContent)
+        assert "Analyzed 2 frame(s)" in result.content[0].text
+        assert "First frame" in result.content[0].text
+        assert "Second frame" in result.content[0].text
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
     def test_custom_output_dir(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
         mock_run.return_value = MagicMock(returncode=0)
 
@@ -203,6 +244,25 @@ class TestExtractFramesEvery:
         assert isinstance(result, CallToolResult)
         assert len(result.content) == 3
         assert all(isinstance(c, ImageContent) for c in result.content)
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_returns_vision_analysis_when_enabled(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch("youtube_tools_mcp.tools.frames.tempfile.mkdtemp", return_value="/tmp/yt"),
+            patch("youtube_tools_mcp.tools.frames.analyze_image_path", side_effect=["Frame 0", "Frame 1"]),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "iterdir", return_value=[]),
+        ):
+            result = extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, max_frames=2, vision_analysis=True)
+
+        assert isinstance(result.content[0], TextContent)
+        assert "Analyzed 2 frame(s)" in result.content[0].text
+        assert "Frame 0" in result.content[0].text
+        assert "Frame 1" in result.content[0].text
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")

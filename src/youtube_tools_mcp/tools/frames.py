@@ -8,6 +8,7 @@ from mcp.shared.exceptions import McpError
 from mcp.types import INTERNAL_ERROR, CallToolResult, ErrorData, ImageContent, TextContent
 
 from youtube_tools_mcp.utils.url import extract_video_id
+from youtube_tools_mcp.vision import VisionAPIError, VisionConfigError, analyze_image_path
 from youtube_tools_mcp.youtube.downloader import (
     DownloadError,
     FFmpegNotFoundError,
@@ -43,6 +44,15 @@ def _cleanup_dir(path: Path) -> None:
             f.unlink(missing_ok=True)
 
 
+def _analysis_result_text(analyses: list[str], timestamps: list[float], video_id: str) -> TextContent:
+    lines = [f"Analyzed {len(analyses)} frame(s) from video {video_id}"]
+    for text, ts in zip(analyses, timestamps, strict=True):
+        lines.append("")
+        lines.append(f"[{_format_timestamp(ts)}]")
+        lines.append(text)
+    return TextContent(type="text", text="\n".join(lines))
+
+
 def _frames_result_text(
     paths: list[Path],
     timestamps: list[float],
@@ -70,6 +80,13 @@ def _get_save_dir(output_dir: str | None, video_id: str) -> Path:
     return save_dir
 
 
+def _analyze_frames(paths: list[Path], vision_prompt: str | None, vision_model: str | None) -> list[str]:
+    try:
+        return [analyze_image_path(path, "image/jpeg", vision_prompt, vision_model) for path in paths]
+    except (VisionConfigError, VisionAPIError) as exc:
+        raise _err(str(exc)) from exc
+
+
 def extract_video_frame(
     url_or_id: str,
     timestamp: float,
@@ -77,6 +94,9 @@ def extract_video_frame(
     max_width: int | None = None,
     jpeg_quality: int = 5,
     return_images: bool = False,
+    vision_analysis: bool = False,
+    vision_prompt: str | None = None,
+    vision_model: str | None = None,
 ) -> CallToolResult:
     """Extract a single frame from a YouTube video at a specific timestamp.
 
@@ -95,6 +115,9 @@ def extract_video_frame(
     Returns:
         MCP result with either TextContent (file path) or ImageContent (inline).
     """
+    if vision_analysis and return_images:
+        raise _err("vision_analysis cannot be combined with return_images")
+
     try:
         video_id = extract_video_id(url_or_id)
     except ValueError as exc:
@@ -104,6 +127,20 @@ def extract_video_frame(
         stream_url, _ = get_stream_url(video_id)
     except DownloadError as exc:
         raise _err(f"Failed to get stream URL: {exc}") from exc
+
+    if vision_analysis:
+        tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frame_analysis_"))
+        try:
+            out_path = tmp_dir / "frame.jpg"
+            extract_frame(stream_url, timestamp, out_path, max_width=max_width, quality=jpeg_quality)
+            analyses = _analyze_frames([out_path], vision_prompt, vision_model)
+            return CallToolResult(content=[_analysis_result_text(analyses, [timestamp], video_id)])
+        except FFmpegNotFoundError as exc:
+            raise _err(str(exc)) from exc
+        except DownloadError as exc:
+            raise _err(f"Frame extraction failed: {exc}") from exc
+        finally:
+            _cleanup_dir(tmp_dir)
 
     if return_images:
         tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frame_"))
@@ -136,6 +173,9 @@ def extract_video_frames(
     max_width: int | None = None,
     jpeg_quality: int = 5,
     return_images: bool = False,
+    vision_analysis: bool = False,
+    vision_prompt: str | None = None,
+    vision_model: str | None = None,
 ) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
@@ -156,6 +196,8 @@ def extract_video_frames(
     """
     if len(timestamps) > _MAX_FRAMES:
         raise _err(f"Too many timestamps ({len(timestamps)}), maximum is {_MAX_FRAMES}")
+    if vision_analysis and return_images:
+        raise _err("vision_analysis cannot be combined with return_images")
 
     try:
         video_id = extract_video_id(url_or_id)
@@ -166,6 +208,22 @@ def extract_video_frames(
         stream_url, _ = get_stream_url(video_id)
     except DownloadError as exc:
         raise _err(f"Failed to get stream URL: {exc}") from exc
+
+    if vision_analysis:
+        tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frames_analysis_"))
+        try:
+            paths = extract_frames_batch(stream_url, timestamps, tmp_dir, max_width=max_width, quality=jpeg_quality)
+            return CallToolResult(
+                content=[
+                    _analysis_result_text(_analyze_frames(paths, vision_prompt, vision_model), timestamps, video_id)
+                ]
+            )
+        except FFmpegNotFoundError as exc:
+            raise _err(str(exc)) from exc
+        except DownloadError as exc:
+            raise _err(f"Frame extraction failed: {exc}") from exc
+        finally:
+            _cleanup_dir(tmp_dir)
 
     if return_images:
         tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frames_"))
@@ -197,6 +255,9 @@ def extract_frames_every(
     max_width: int | None = None,
     jpeg_quality: int = 5,
     return_images: bool = False,
+    vision_analysis: bool = False,
+    vision_prompt: str | None = None,
+    vision_model: str | None = None,
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
@@ -220,6 +281,8 @@ def extract_frames_every(
         raise _err(f"max_frames ({max_frames}) exceeds limit ({_MAX_FRAMES})")
     if interval_sec <= 0:
         raise _err("interval_sec must be positive")
+    if vision_analysis and return_images:
+        raise _err("vision_analysis cannot be combined with return_images")
 
     try:
         video_id = extract_video_id(url_or_id)
@@ -236,6 +299,22 @@ def extract_frames_every(
         raise _err(f"Video duration ({duration:.1f}s) is shorter than interval ({interval_sec}s)")
 
     timestamps = [i * interval_sec for i in range(count)]
+
+    if vision_analysis:
+        tmp_dir = Path(tempfile.mkdtemp(prefix="yt_interval_analysis_"))
+        try:
+            paths = extract_frames_batch(stream_url, timestamps, tmp_dir, max_width=max_width, quality=jpeg_quality)
+            return CallToolResult(
+                content=[
+                    _analysis_result_text(_analyze_frames(paths, vision_prompt, vision_model), timestamps, video_id)
+                ]
+            )
+        except FFmpegNotFoundError as exc:
+            raise _err(str(exc)) from exc
+        except DownloadError as exc:
+            raise _err(f"Frame extraction failed: {exc}") from exc
+        finally:
+            _cleanup_dir(tmp_dir)
 
     if return_images:
         tmp_dir = Path(tempfile.mkdtemp(prefix="yt_interval_"))

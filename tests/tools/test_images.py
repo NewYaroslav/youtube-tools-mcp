@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 from mcp.shared.exceptions import McpError
-from mcp.types import CallToolResult, ImageContent
+from mcp.types import CallToolResult, ImageContent, TextContent
 
-from youtube_tools_mcp.tools.images import read_image_file
+from youtube_tools_mcp.tools.images import analyze_image_file, read_image_file
 
 
 class TestReadImageFile:
@@ -47,3 +47,37 @@ class TestReadImageFile:
     def test_directory_raises_mcp_error(self, tmp_path: Path) -> None:
         with pytest.raises(McpError, match="Path is not a file"):
             read_image_file(str(tmp_path))
+
+    def test_read_image_file_can_return_vision_analysis(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        image_path = tmp_path / "frame.jpg"
+        image_path.write_bytes(b"\xff\xd8fake_jpeg")
+
+        def fake_analyze(path: Path, mime_type: str, prompt: str | None, model: str | None) -> str:
+            assert path == image_path
+            assert mime_type == "image/jpeg"
+            assert prompt == "what is here?"
+            assert model == "vision-model"
+            return "A test frame"
+
+        monkeypatch.setattr("youtube_tools_mcp.tools.images.analyze_image_path", fake_analyze)
+
+        result = read_image_file(
+            str(image_path), vision_analysis=True, vision_prompt="what is here?", vision_model="vision-model"
+        )
+
+        assert isinstance(result.content[0], TextContent)
+        assert result.content[0].text == "A test frame"
+
+    def test_analyze_image_file_returns_text(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        image_path = tmp_path / "пример.png"
+        image_path.write_bytes(b"\x89PNGfake")
+
+        monkeypatch.setattr(
+            "youtube_tools_mcp.tools.images.analyze_image_path",
+            lambda path, mime_type, prompt, model: f"{mime_type}: {prompt}: {model}",
+        )
+
+        result = analyze_image_file(str(image_path), prompt="describe", model="vision-model")
+
+        assert isinstance(result.content[0], TextContent)
+        assert result.content[0].text == "image/png: describe: vision-model"

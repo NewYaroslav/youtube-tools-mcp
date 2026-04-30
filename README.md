@@ -26,16 +26,18 @@ Designed for Claude Code, VSCodium, and any MCP-compatible agent.
 | `extract_video_frame` | Extract a single frame at a specific timestamp |
 | `extract_video_frames` | Extract multiple frames at specified timestamps |
 | `extract_frames_every` | Extract frames at regular intervals |
-| `read_image_file` | Read a local image path and return inline image data |
+| `read_image_file` | Read a local image path and return inline image data or vision analysis |
+| `analyze_image_file` | Analyze a local image with a configured vision model |
 | `download_video` | Download a YouTube video (best, 720p, 480p, 360p) |
 | `download_audio` | Download audio only (mp3, m4a, opus, wav) |
 
 ## Frame and image modes
 
-Frame extraction tools support two return modes:
+Frame extraction tools support three return modes:
 
 - `return_images=false` (default): save JPEG frames to disk and return file paths as text. Use this with text-only or non-vision models.
 - `return_images=true`: return inline MCP `ImageContent` for vision-capable models.
+- `vision_analysis=true`: send extracted frames to a configured OpenAI-compatible vision model and return text descriptions.
 
 Frame parameters:
 
@@ -44,10 +46,14 @@ Frame parameters:
 | `output_dir` | system temp directory | Directory for saved frames when `return_images=false` |
 | `max_width` | `null` | Optional maximum frame width. `null` keeps original width |
 | `jpeg_quality` | `5` | ffmpeg JPEG quality, where `2` is best and `31` is worst |
+| `vision_prompt` | default image description prompt | Optional prompt for `vision_analysis=true` |
+| `vision_model` | configured env model | Optional model override for `vision_analysis=true` |
 
-`read_image_file(path)` reads an existing local `.jpg`, `.jpeg`, `.png`, `.gif`, or `.webp` file and returns it as inline MCP image content. Unicode paths are supported, including Cyrillic filenames and directories.
+`read_image_file(path)` reads an existing local `.jpg`, `.jpeg`, `.png`, `.gif`, or `.webp` file and returns it as inline MCP image content. Set `vision_analysis=true`, or call `analyze_image_file(path)`, to return a text description instead. Unicode paths are supported, including Cyrillic filenames and directories.
 
-For non-vision models, do not read image files directly. Use saved paths with transcript context, captions, or links instead.
+`vision_analysis=true` cannot be combined with `return_images=true`.
+
+For non-vision models, use saved paths or `vision_analysis=true` instead of reading image files directly.
 
 ## Installation
 
@@ -131,9 +137,15 @@ Install ffmpeg:
 
 ## Environment Variables
 
+Environment variables can be set in the process environment or in a local `.env` file in the project root. `.env` is gitignored.
+
 | Variable | Required | Description |
 |---|---|---|
 | `YOUTUBE_API_KEY` | No | Enables YouTube Data API features (metadata, search). Core tools work without it. |
+| `YOUTUBE_TOOLS_VISION_BASE_URL` | For vision analysis | OpenAI-compatible base URL. Falls back to `OPENAI_BASE_URL`, then `ANTHROPIC_BASE_URL` + `/v1`. |
+| `YOUTUBE_TOOLS_VISION_API_KEY` | For vision analysis | API token. Falls back to `OPENAI_API_KEY`. |
+| `YOUTUBE_TOOLS_VISION_MODEL` | For vision analysis | Vision-capable model. Falls back to `OPENAI_VISION_MODEL`, `ANTHROPIC_TOOL_USE_MODEL`, then `ANTHROPIC_MODEL`. |
+| `YOUTUBE_TOOLS_VISION_TIMEOUT` | No | Vision request timeout in seconds. Defaults to `60`. |
 
 ## Development
 
