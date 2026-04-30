@@ -122,6 +122,49 @@ Add to `.vscode/mcp.json`:
 }
 ```
 
+### Configuring API keys for MCP clients
+
+Core tools work without API keys. Add environment variables only for the features you want to enable:
+
+- `YOUTUBE_API_KEY` enables YouTube Data API features such as metadata and search.
+- Vision analysis requires `YOUTUBE_TOOLS_VISION_BASE_URL`, `YOUTUBE_TOOLS_VISION_API_KEY`, and `YOUTUBE_TOOLS_VISION_MODEL`.
+
+For Claude Desktop, VS Code, VSCodium, and other JSON-based MCP clients, add an `env` block to the `youtube-tools` server entry:
+
+```json
+{
+  "mcpServers": {
+    "youtube-tools": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/NewYaroslav/youtube-tools-mcp",
+        "youtube-tools-mcp"
+      ],
+      "env": {
+        "YOUTUBE_API_KEY": "your-youtube-api-key",
+        "YOUTUBE_TOOLS_VISION_BASE_URL": "https://api.openai.com/v1",
+        "YOUTUBE_TOOLS_VISION_API_KEY": "your-vision-api-key",
+        "YOUTUBE_TOOLS_VISION_MODEL": "gpt-4o-mini"
+      }
+    }
+  }
+}
+```
+
+Remove variables for features you do not use. Do not commit real API keys or tokens; use user-level MCP config or placeholders for shared config files.
+
+With Claude CLI, pass environment variables before the server name:
+
+```bash
+claude mcp add --scope user \
+  --env YOUTUBE_API_KEY=your-youtube-api-key \
+  --env YOUTUBE_TOOLS_VISION_BASE_URL=http://127.0.0.1:8000/v1 \
+  --env YOUTUBE_TOOLS_VISION_API_KEY=your-vision-api-key \
+  --env YOUTUBE_TOOLS_VISION_MODEL=your-vision-model \
+  youtube-tools -- uvx --from git+https://github.com/NewYaroslav/youtube-tools-mcp youtube-tools-mcp
+```
+
 ## System Requirements
 
 - Python 3.12+
@@ -139,6 +182,8 @@ Install ffmpeg:
 
 Environment variables can be set in the process environment or in a local `.env` file in the project root. `.env` is gitignored.
 
+When installed via `uvx` from an MCP client, the server may run outside your project checkout. In that case, set variables in the MCP client's `env` block or in the parent process environment.
+
 | Variable | Required | Description |
 |---|---|---|
 | `YOUTUBE_API_KEY` | No | Enables YouTube Data API features (metadata, search). Core tools work without it. |
@@ -146,6 +191,18 @@ Environment variables can be set in the process environment or in a local `.env`
 | `YOUTUBE_TOOLS_VISION_API_KEY` | For vision analysis | API token. Falls back to `OPENAI_API_KEY`. |
 | `YOUTUBE_TOOLS_VISION_MODEL` | For vision analysis | Vision-capable model. Falls back to `OPENAI_VISION_MODEL`, `ANTHROPIC_TOOL_USE_MODEL`, then `ANTHROPIC_MODEL`. |
 | `YOUTUBE_TOOLS_VISION_TIMEOUT` | No | Vision request timeout in seconds. Defaults to `60`. |
+
+### If you installed the MCP server without tokens
+
+Update the existing `youtube-tools` MCP server entry, add the needed `env` variables, and fully restart the MCP client.
+
+For Claude Desktop, VS Code, and VSCodium, edit the existing JSON config entry. For Claude CLI, remove and re-add the server with the needed environment, or edit the generated MCP config if your client supports it.
+
+After updating tokens:
+
+1. Fully restart the MCP client.
+2. Confirm the `youtube-tools` server reconnects.
+3. Retry the tool that requires the token.
 
 ## Development
 
@@ -160,12 +217,20 @@ uv run pytest
 
 Create `.mcp.json` in the project root (gitignored) to run the server locally alongside other MCP tools:
 
+For local development, you can also put these values in a project-root `.env` file. Use the `env` block when you want the MCP client configuration to be self-contained.
+
 ```json
 {
   "mcpServers": {
     "youtube-tools": {
       "command": "uv",
-      "args": ["run", "python", "-m", "youtube_tools_mcp.server"]
+      "args": ["run", "python", "-m", "youtube_tools_mcp.server"],
+      "env": {
+        "YOUTUBE_API_KEY": "your-youtube-api-key",
+        "YOUTUBE_TOOLS_VISION_BASE_URL": "https://api.openai.com/v1",
+        "YOUTUBE_TOOLS_VISION_API_KEY": "your-vision-api-key",
+        "YOUTUBE_TOOLS_VISION_MODEL": "gpt-4o-mini"
+      }
     },
     "context7": {
       "command": "npx",
