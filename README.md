@@ -154,15 +154,15 @@ For Claude Desktop, VS Code, VSCodium, and other JSON-based MCP clients, add an 
 
 Remove variables for features you do not use. Do not commit real API keys or tokens; use user-level MCP config or placeholders for shared config files.
 
-With Claude CLI, pass environment variables before the server name:
+With Claude CLI, pass environment variables before `--`, then pass the server name, command, and arguments:
 
 ```bash
 claude mcp add --scope user \
-  --env YOUTUBE_API_KEY=your-youtube-api-key \
-  --env YOUTUBE_TOOLS_VISION_BASE_URL=http://127.0.0.1:8000/v1 \
-  --env YOUTUBE_TOOLS_VISION_API_KEY=your-vision-api-key \
-  --env YOUTUBE_TOOLS_VISION_MODEL=your-vision-model \
-  youtube-tools -- uvx --from git+https://github.com/NewYaroslav/youtube-tools-mcp youtube-tools-mcp
+  -e YOUTUBE_API_KEY=your-youtube-api-key \
+  -e YOUTUBE_TOOLS_VISION_BASE_URL=http://127.0.0.1:8000/v1 \
+  -e YOUTUBE_TOOLS_VISION_API_KEY=your-vision-api-key \
+  -e YOUTUBE_TOOLS_VISION_MODEL=your-vision-model \
+  -- youtube-tools uvx --from git+https://github.com/NewYaroslav/youtube-tools-mcp youtube-tools-mcp
 ```
 
 ## System Requirements
