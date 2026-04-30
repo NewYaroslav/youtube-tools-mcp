@@ -19,6 +19,7 @@ from youtube_tools_mcp.tools.frames import (
 from youtube_tools_mcp.tools.frames import (
     extract_video_frames as _extract_video_frames,
 )
+from youtube_tools_mcp.tools.images import read_image_file as _read_image_file
 from youtube_tools_mcp.tools.transcript import get_youtube_transcript as _get_youtube_transcript
 
 mcp = FastMCP(
@@ -159,6 +160,19 @@ def extract_frames_every(
         jpeg_quality,
         return_images,
     )
+
+
+@mcp.tool()
+def read_image_file(path: str) -> CallToolResult:
+    """Read a local image file and return inline image data for vision-capable models.
+
+    Use this when the built-in Read tool cannot render an image path.
+    Supports Unicode paths, including Cyrillic filenames and directories.
+
+    Args:
+        path: Local image file path (.jpg, .jpeg, .png, .gif, .webp).
+    """
+    return _read_image_file(path)
 
 
 @mcp.tool()
