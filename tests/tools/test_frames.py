@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from mcp.shared.exceptions import McpError
-from mcp.types import CallToolResult, ImageContent, TextContent
+from mcp.types import CallToolResult, TextContent
 
 from youtube_tools_mcp.tools.frames import (
     extract_frames_every,
@@ -17,7 +17,6 @@ from youtube_tools_mcp.youtube.downloader import DownloadError
 from ..conftest import SAMPLE_VIDEO_ID
 
 _STREAM = "youtube_tools_mcp.tools.frames.get_stream_url"
-_MKD = "youtube_tools_mcp.tools.frames.Path.mkdir"
 _WHICH = "youtube_tools_mcp.youtube.downloader.shutil.which"
 _RUN = "youtube_tools_mcp.youtube.downloader.subprocess.run"
 
@@ -27,22 +26,37 @@ _SAMPLE_STREAM_URL = "https://stream.example.com/video.mp4"
 class TestExtractVideoFrame:
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
-    def test_returns_call_tool_result_with_image(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+    def test_returns_text_with_file_path(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
             patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
-            patch("youtube_tools_mcp.tools.frames.tempfile.mkdtemp", return_value="/tmp/yt"),
-            patch.object(Path, "read_bytes", return_value=b"\xff\xd8fake_jpeg"),
+            patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
-            patch.object(Path, "iterdir", return_value=[]),
         ):
             result = extract_video_frame(SAMPLE_VIDEO_ID, 10.0)
 
         assert isinstance(result, CallToolResult)
         assert len(result.content) == 1
-        assert isinstance(result.content[0], ImageContent)
-        assert result.content[0].mimeType == "image/jpeg"
+        assert isinstance(result.content[0], TextContent)
+        assert "Extracted 1 frame" in result.content[0].text
+        assert "frame_10.jpg" in result.content[0].text
+        assert "STOP" in result.content[0].text
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_custom_output_dir(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            result = extract_video_frame(SAMPLE_VIDEO_ID, 10.0, output_dir="/custom/dir")
+
+        assert isinstance(result.content[0], TextContent)
+        assert "custom" in result.content[0].text and "dir" in result.content[0].text
 
     def test_invalid_url_raises_mcp_error(self) -> None:
         with pytest.raises(McpError, match="Cannot extract YouTube video ID"):
@@ -59,8 +73,7 @@ class TestExtractVideoFrame:
         with (
             patch(_WHICH, return_value=None),
             patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
-            patch("youtube_tools_mcp.tools.frames.tempfile.mkdtemp", return_value="/tmp/yt"),
-            patch.object(Path, "iterdir", return_value=[]),
+            patch.object(Path, "mkdir"),
             pytest.raises(McpError, match="ffmpeg is required"),
         ):
             extract_video_frame(SAMPLE_VIDEO_ID, 10.0)
@@ -82,10 +95,11 @@ class TestExtractVideoFrames:
         assert isinstance(result, CallToolResult)
         assert len(result.content) == 1
         assert isinstance(result.content[0], TextContent)
-        assert "Extracted 3 frames" in result.content[0].text
+        assert "Extracted 3 frame(s)" in result.content[0].text
         assert "frame_0000.jpg" in result.content[0].text
         assert "frame_0001.jpg" in result.content[0].text
         assert "frame_0002.jpg" in result.content[0].text
+        assert "STOP" in result.content[0].text
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
@@ -135,7 +149,8 @@ class TestExtractFramesEvery:
         assert isinstance(result, CallToolResult)
         assert len(result.content) == 1
         assert isinstance(result.content[0], TextContent)
-        assert "Extracted 4 frames" in result.content[0].text
+        assert "Extracted 4 frame(s)" in result.content[0].text
+        assert "STOP" in result.content[0].text
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")

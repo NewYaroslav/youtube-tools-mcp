@@ -98,7 +98,7 @@ def extract_frame(
     stream_url: str,
     timestamp: float,
     output_path: Path,
-    max_width: int = 1280,
+    max_width: int = 640,
 ) -> Path:
     """Extract a single frame from a video stream at the given timestamp.
 
@@ -119,7 +119,7 @@ def extract_frame(
         "-vf",
         f"scale='min({max_width},iw)':-2",
         "-q:v",
-        "5",
+        "8",
         "-y",
         str(output_path),
     ]
@@ -142,7 +142,7 @@ def extract_frames_batch(
     stream_url: str,
     timestamps: list[float],
     output_dir: Path,
-    max_width: int = 1280,
+    max_width: int = 640,
 ) -> list[Path]:
     """Extract frames at multiple timestamps from a video stream.
 

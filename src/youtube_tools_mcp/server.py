@@ -74,18 +74,24 @@ def clean_transcript(
 
 
 @mcp.tool()
-def extract_video_frame(url_or_id: str, timestamp: float, max_width: int = 1280) -> CallToolResult:
+def extract_video_frame(
+    url_or_id: str,
+    timestamp: float,
+    output_dir: str | None = None,
+    max_width: int = 640,
+) -> CallToolResult:
     """Extract a single frame from a YouTube video at a specific timestamp.
 
+    Saves frame as a JPEG file and returns the file path (not inline image).
     Requires ffmpeg to be installed on the system.
-    Frame is downscaled to max_width to keep context usage low.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         timestamp: Timestamp in seconds (e.g., 195.0 for 3:15).
-        max_width: Maximum frame width in pixels. Defaults to 1280.
+        output_dir: Directory to save frame. Defaults to system temp/yt-frames.
+        max_width: Maximum frame width in pixels. Defaults to 640.
     """
-    return _extract_video_frame(url_or_id, timestamp, max_width)
+    return _extract_video_frame(url_or_id, timestamp, output_dir, max_width)
 
 
 @mcp.tool()
@@ -93,7 +99,7 @@ def extract_video_frames(
     url_or_id: str,
     timestamps: list[float],
     output_dir: str | None = None,
-    max_width: int = 1280,
+    max_width: int = 640,
 ) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
@@ -105,7 +111,7 @@ def extract_video_frames(
         url_or_id: YouTube video URL or 11-character video ID.
         timestamps: List of timestamps in seconds.
         output_dir: Directory to save frames. Defaults to system temp/yt-frames.
-        max_width: Maximum frame width in pixels. Defaults to 1280.
+        max_width: Maximum frame width in pixels. Defaults to 640.
     """
     return _extract_video_frames(url_or_id, timestamps, output_dir, max_width)
 
@@ -116,7 +122,7 @@ def extract_frames_every(
     interval_sec: float = 30.0,
     max_frames: int = 10,
     output_dir: str | None = None,
-    max_width: int = 1280,
+    max_width: int = 640,
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
@@ -129,7 +135,7 @@ def extract_frames_every(
         interval_sec: Interval between frames in seconds. Defaults to 30.
         max_frames: Maximum number of frames to extract. Defaults to 10, max 30.
         output_dir: Directory to save frames. Defaults to system temp/yt-frames.
-        max_width: Maximum frame width in pixels. Defaults to 1280.
+        max_width: Maximum frame width in pixels. Defaults to 640.
     """
     return _extract_frames_every(url_or_id, interval_sec, max_frames, output_dir, max_width)
 

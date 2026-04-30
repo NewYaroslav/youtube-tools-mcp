@@ -100,7 +100,7 @@ class TestExtractFrame:
         assert cmd[2] == "10.000"
         assert "-vf" in cmd
         scale_val = cmd[cmd.index("-vf") + 1]
-        assert "1280" in scale_val
+        assert "640" in scale_val
 
     @patch("youtube_tools_mcp.youtube.downloader.shutil")
     @patch("youtube_tools_mcp.youtube.downloader.subprocess")
@@ -154,7 +154,7 @@ class TestExtractFramesBatch:
     @patch("youtube_tools_mcp.youtube.downloader.shutil")
     def test_extracts_multiple_frames(self, mock_shutil: MagicMock, mock_extract: MagicMock) -> None:
         mock_shutil.which.return_value = "/usr/bin/ffmpeg"
-        mock_extract.side_effect = lambda url, ts, path, max_width=1280: path
+        mock_extract.side_effect = lambda url, ts, path, max_width=640: path
 
         output_dir = Path("/tmp/frames")
         timestamps = [0.0, 5.0, 10.0]
