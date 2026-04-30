@@ -145,7 +145,8 @@ For Claude Desktop, VS Code, VSCodium, and other JSON-based MCP clients, add an 
         "YOUTUBE_API_KEY": "your-youtube-api-key",
         "YOUTUBE_TOOLS_VISION_BASE_URL": "https://api.openai.com/v1",
         "YOUTUBE_TOOLS_VISION_API_KEY": "your-vision-api-key",
-        "YOUTUBE_TOOLS_VISION_MODEL": "gpt-4o-mini"
+        "YOUTUBE_TOOLS_VISION_MODEL": "gpt-4o-mini",
+        "YOUTUBE_TOOLS_VISION_MAX_TOKENS": "1024"
       }
     }
   }
@@ -162,6 +163,7 @@ claude mcp add --scope user \
   -e YOUTUBE_TOOLS_VISION_BASE_URL=http://127.0.0.1:8000/v1 \
   -e YOUTUBE_TOOLS_VISION_API_KEY=your-vision-api-key \
   -e YOUTUBE_TOOLS_VISION_MODEL=your-vision-model \
+  -e YOUTUBE_TOOLS_VISION_MAX_TOKENS=1024 \
   -- youtube-tools uvx --from git+https://github.com/NewYaroslav/youtube-tools-mcp youtube-tools-mcp
 ```
 
@@ -190,6 +192,7 @@ When installed via `uvx` from an MCP client, the server may run outside your pro
 | `YOUTUBE_TOOLS_VISION_BASE_URL` | For vision analysis | OpenAI-compatible base URL. Falls back to `OPENAI_BASE_URL`, then `ANTHROPIC_BASE_URL` + `/v1`. |
 | `YOUTUBE_TOOLS_VISION_API_KEY` | For vision analysis | API token. Falls back to `OPENAI_API_KEY`. |
 | `YOUTUBE_TOOLS_VISION_MODEL` | For vision analysis | Vision-capable model. Falls back to `OPENAI_VISION_MODEL`, `ANTHROPIC_TOOL_USE_MODEL`, then `ANTHROPIC_MODEL`. |
+| `YOUTUBE_TOOLS_VISION_MAX_TOKENS` | No | Vision completion token budget. Defaults to `1024`; values are clamped from `64` to `4096`. |
 | `YOUTUBE_TOOLS_VISION_TIMEOUT` | No | Vision request timeout in seconds. Defaults to `60`. |
 
 ### If you installed the MCP server without tokens
@@ -229,7 +232,8 @@ For local development, you can also put these values in a project-root `.env` fi
         "YOUTUBE_API_KEY": "your-youtube-api-key",
         "YOUTUBE_TOOLS_VISION_BASE_URL": "https://api.openai.com/v1",
         "YOUTUBE_TOOLS_VISION_API_KEY": "your-vision-api-key",
-        "YOUTUBE_TOOLS_VISION_MODEL": "gpt-4o-mini"
+        "YOUTUBE_TOOLS_VISION_MODEL": "gpt-4o-mini",
+        "YOUTUBE_TOOLS_VISION_MAX_TOKENS": "1024"
       }
     },
     "context7": {

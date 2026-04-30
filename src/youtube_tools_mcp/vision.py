@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any
 
 _DEFAULT_PROMPT = "Describe this image in detail. Mention visible text, objects, people, scene, and notable details."
+_DEFAULT_MAX_TOKENS = 1024
+_MIN_MAX_TOKENS = 64
+_MAX_MAX_TOKENS = 4096
 _ENV_LOADED = False
 
 
@@ -82,10 +85,22 @@ def _timeout() -> float:
         raise VisionConfigError("YOUTUBE_TOOLS_VISION_TIMEOUT must be a number") from exc
 
 
+def _max_tokens() -> int:
+    raw = _env("YOUTUBE_TOOLS_VISION_MAX_TOKENS")
+    if not raw:
+        return _DEFAULT_MAX_TOKENS
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise VisionConfigError("YOUTUBE_TOOLS_VISION_MAX_TOKENS must be an integer") from exc
+    return max(_MIN_MAX_TOKENS, min(_MAX_MAX_TOKENS, value))
+
+
 def analyze_image_path(path: Path, mime_type: str, prompt: str | None = None, model: str | None = None) -> str:
     data = base64.b64encode(path.read_bytes()).decode()
     payload = {
         "model": _model(model),
+        "max_tokens": _max_tokens(),
         "messages": [
             {
                 "role": "user",

@@ -84,9 +84,53 @@ def test_analyze_image_path_posts_openai_compatible_payload(tmp_path: Path, monk
     assert request.headers["Authorization"] == "Bearer test-key"
     payload = json.loads(request.data.decode("utf-8"))
     assert payload["model"] == "vision-model"
+    assert payload["max_tokens"] == 1024
     assert payload["messages"][0]["content"][0] == {"type": "text", "text": "describe"}
     image_url = payload["messages"][0]["content"][1]["image_url"]["url"]
     assert image_url.startswith("data:image/jpeg;base64,")
+
+
+@pytest.mark.parametrize(
+    ("raw_max_tokens", "expected_max_tokens"),
+    [("256", 256), ("1", 64), ("999999", 4096)],
+)
+def test_analyze_image_path_bounds_max_tokens(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    raw_max_tokens: str,
+    expected_max_tokens: int,
+) -> None:
+    image_path = tmp_path / "frame.jpg"
+    image_path.write_bytes(b"fake-image")
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(request: object, timeout: float) -> _FakeResponse:
+        captured["request"] = request
+        return _FakeResponse({"choices": [{"message": {"content": "A frame description"}}]})
+
+    monkeypatch.setenv("YOUTUBE_TOOLS_VISION_BASE_URL", "http://127.0.0.1:8000/v1")
+    monkeypatch.setenv("YOUTUBE_TOOLS_VISION_API_KEY", "test-key")
+    monkeypatch.setenv("YOUTUBE_TOOLS_VISION_MODEL", "vision-model")
+    monkeypatch.setenv("YOUTUBE_TOOLS_VISION_MAX_TOKENS", raw_max_tokens)
+    monkeypatch.setattr("youtube_tools_mcp.vision.urllib.request.urlopen", fake_urlopen)
+
+    analyze_image_path(image_path, "image/jpeg")
+
+    request = captured["request"]
+    payload = json.loads(request.data.decode("utf-8"))
+    assert payload["max_tokens"] == expected_max_tokens
+
+
+def test_analyze_image_path_rejects_invalid_max_tokens(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    image_path = tmp_path / "frame.jpg"
+    image_path.write_bytes(b"fake-image")
+    monkeypatch.setenv("YOUTUBE_TOOLS_VISION_BASE_URL", "http://127.0.0.1:8000/v1")
+    monkeypatch.setenv("YOUTUBE_TOOLS_VISION_API_KEY", "test-key")
+    monkeypatch.setenv("YOUTUBE_TOOLS_VISION_MODEL", "vision-model")
+    monkeypatch.setenv("YOUTUBE_TOOLS_VISION_MAX_TOKENS", "abc")
+
+    with pytest.raises(VisionConfigError, match="YOUTUBE_TOOLS_VISION_MAX_TOKENS must be an integer"):
+        analyze_image_path(image_path, "image/jpeg")
 
 
 def test_analyze_image_path_requires_explicit_vision_api_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
