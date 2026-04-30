@@ -1,0 +1,166 @@
+from __future__ import annotations
+
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+from mcp.shared.exceptions import McpError
+from mcp.types import CallToolResult, ImageContent
+
+from youtube_tools_mcp.tools.frames import (
+    extract_frames_every,
+    extract_video_frame,
+    extract_video_frames,
+)
+from youtube_tools_mcp.youtube.downloader import DownloadError
+
+from ..conftest import SAMPLE_VIDEO_ID
+
+_STREAM = "youtube_tools_mcp.tools.frames.get_stream_url"
+_TMP = "youtube_tools_mcp.tools.frames.tempfile"
+_WHICH = "youtube_tools_mcp.youtube.downloader.shutil.which"
+_RUN = "youtube_tools_mcp.youtube.downloader.subprocess.run"
+
+_SAMPLE_STREAM_URL = "https://stream.example.com/video.mp4"
+
+
+class TestExtractVideoFrame:
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_returns_call_tool_result_with_image(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch(_TMP, MagicMock(mkdtemp=MagicMock(return_value="/tmp/yt"))),
+            patch.object(Path, "read_bytes", return_value=b"\xff\xd8fake_jpeg"),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "iterdir", return_value=[]),
+        ):
+            result = extract_video_frame(SAMPLE_VIDEO_ID, 10.0)
+
+        assert isinstance(result, CallToolResult)
+        assert len(result.content) == 1
+        assert isinstance(result.content[0], ImageContent)
+        assert result.content[0].mimeType == "image/jpeg"
+
+    def test_invalid_url_raises_mcp_error(self) -> None:
+        with pytest.raises(McpError, match="Cannot extract YouTube video ID"):
+            extract_video_frame("not_a_valid_id", 10.0)
+
+    def test_stream_url_error_raises_mcp_error(self) -> None:
+        with (
+            patch(_STREAM, side_effect=DownloadError("no stream")),
+            pytest.raises(McpError, match="Failed to get stream URL"),
+        ):
+            extract_video_frame(SAMPLE_VIDEO_ID, 10.0)
+
+    def test_ffmpeg_not_found_raises_mcp_error(self) -> None:
+        with (
+            patch(_WHICH, return_value=None),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch(_TMP, MagicMock(mkdtemp=MagicMock(return_value="/tmp/yt"))),
+            patch.object(Path, "iterdir", return_value=[]),
+            pytest.raises(McpError, match="ffmpeg is required"),
+        ):
+            extract_video_frame(SAMPLE_VIDEO_ID, 10.0)
+
+
+class TestExtractVideoFrames:
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_returns_multiple_images(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch(_TMP, MagicMock(mkdtemp=MagicMock(return_value="/tmp/yt"))),
+            patch.object(Path, "read_bytes", return_value=b"\xff\xd8jpeg"),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "iterdir", return_value=[]),
+        ):
+            result = extract_video_frames(SAMPLE_VIDEO_ID, [0.0, 5.0, 10.0])
+
+        assert isinstance(result, CallToolResult)
+        assert len(result.content) == 3
+
+    def test_too_many_timestamps_raises_mcp_error(self) -> None:
+        timestamps = list(range(31))
+        with pytest.raises(McpError, match="Too many timestamps"):
+            extract_video_frames(SAMPLE_VIDEO_ID, timestamps)
+
+    def test_invalid_url_raises_mcp_error(self) -> None:
+        with pytest.raises(McpError, match="Cannot extract YouTube video ID"):
+            extract_video_frames("not_a_valid_id", [0.0])
+
+    def test_stream_url_error_raises_mcp_error(self) -> None:
+        with (
+            patch(_STREAM, side_effect=DownloadError("no stream")),
+            pytest.raises(McpError, match="Failed to get stream URL"),
+        ):
+            extract_video_frames(SAMPLE_VIDEO_ID, [0.0])
+
+
+class TestExtractFramesEvery:
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_returns_frames_at_intervals(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch(_TMP, MagicMock(mkdtemp=MagicMock(return_value="/tmp/yt"))),
+            patch.object(Path, "read_bytes", return_value=b"\xff\xd8jpeg"),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "iterdir", return_value=[]),
+        ):
+            result = extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, max_frames=4)
+
+        assert isinstance(result, CallToolResult)
+        assert len(result.content) == 4
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_respects_max_frames(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 600.0)),
+            patch(_TMP, MagicMock(mkdtemp=MagicMock(return_value="/tmp/yt"))),
+            patch.object(Path, "read_bytes", return_value=b"\xff\xd8jpeg"),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "iterdir", return_value=[]),
+        ):
+            extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, max_frames=5)
+
+        assert mock_run.call_count == 5
+
+    def test_max_frames_exceeds_limit_raises_mcp_error(self) -> None:
+        with pytest.raises(McpError, match="max_frames.*exceeds limit"):
+            extract_frames_every(SAMPLE_VIDEO_ID, max_frames=31)
+
+    def test_negative_interval_raises_mcp_error(self) -> None:
+        with pytest.raises(McpError, match="interval_sec must be positive"):
+            extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=-1.0)
+
+    def test_zero_interval_raises_mcp_error(self) -> None:
+        with pytest.raises(McpError, match="interval_sec must be positive"):
+            extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=0.0)
+
+    def test_video_shorter_than_interval_raises_mcp_error(self) -> None:
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 10.0)),
+            pytest.raises(McpError, match="shorter than interval"),
+        ):
+            extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0)
+
+    def test_invalid_url_raises_mcp_error(self) -> None:
+        with pytest.raises(McpError, match="Cannot extract YouTube video ID"):
+            extract_frames_every("not_a_valid_id")
+
+    def test_stream_url_error_raises_mcp_error(self) -> None:
+        with (
+            patch(_STREAM, side_effect=DownloadError("no info")),
+            pytest.raises(McpError, match="Failed to get video info"),
+        ):
+            extract_frames_every(SAMPLE_VIDEO_ID)
