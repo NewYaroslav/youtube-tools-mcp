@@ -100,6 +100,7 @@ def extract_frame(
     output_path: Path,
     max_width: int | None = None,
     quality: int = 5,
+    ffmpeg_timeout: float = 60.0,
 ) -> Path:
     """Extract a single frame from a video stream at the given timestamp.
 
@@ -112,6 +113,7 @@ def extract_frame(
         output_path: Where to save the JPEG frame.
         max_width: Maximum frame width. None = original size.
         quality: JPEG quality (2=best, 31=worst). Defaults to 5.
+        ffmpeg_timeout: Timeout for the ffmpeg subprocess in seconds.
     """
     _check_ffmpeg()
 
@@ -129,9 +131,9 @@ def extract_frame(
     cmd.extend(["-q:v", str(quality), "-y", str(output_path)])
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=ffmpeg_timeout)
     except subprocess.TimeoutExpired as exc:
-        raise FFmpegError(f"ffmpeg timed out after 30s at timestamp {timestamp}") from exc
+        raise FFmpegError(f"ffmpeg timed out after {ffmpeg_timeout}s at timestamp {timestamp}") from exc
 
     if result.returncode != 0:
         raise FFmpegError(f"ffmpeg failed (exit {result.returncode}): {result.stderr.strip()}")
@@ -148,6 +150,7 @@ def extract_frames_batch(
     output_dir: Path,
     max_width: int | None = None,
     quality: int = 5,
+    ffmpeg_timeout: float = 60.0,
 ) -> list[Path]:
     """Extract frames at multiple timestamps from a video stream.
 
@@ -160,6 +163,7 @@ def extract_frames_batch(
         output_dir: Directory to save JPEG frames.
         max_width: Maximum frame width. None = original size.
         quality: JPEG quality (2=best, 31=worst). Defaults to 5.
+        ffmpeg_timeout: Timeout for the ffmpeg subprocess in seconds.
     """
     _check_ffmpeg()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -167,7 +171,14 @@ def extract_frames_batch(
     paths: list[Path] = []
     for i, ts in enumerate(timestamps):
         out_path = output_dir / f"frame_{i:04d}.jpg"
-        extract_frame(stream_url, ts, out_path, max_width=max_width, quality=quality)
+        extract_frame(
+            stream_url,
+            ts,
+            out_path,
+            max_width=max_width,
+            quality=quality,
+            ffmpeg_timeout=ffmpeg_timeout,
+        )
         paths.append(out_path)
 
     return paths

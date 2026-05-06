@@ -91,11 +91,13 @@ class TestExtractFrame:
 
         output_path = Path("/tmp/test_frame.jpg")
         with patch.object(Path, "exists", return_value=True):
-            result = extract_frame("https://stream.url/video.mp4", 10.0, output_path)
+            result = extract_frame("https://stream.url/video.mp4", 10.0, output_path, ffmpeg_timeout=12.5)
 
         assert result == output_path
         mock_subprocess.run.assert_called_once()
         cmd = mock_subprocess.run.call_args[0][0]
+        kwargs = mock_subprocess.run.call_args.kwargs
+        assert kwargs["timeout"] == 12.5
         assert cmd[0] == "ffmpeg"
         assert cmd[2] == "10.000"
         assert "-vf" not in cmd
@@ -140,7 +142,7 @@ class TestExtractFrame:
             mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
             mock_subprocess.run.side_effect = subprocess.TimeoutExpired(cmd="ffmpeg", timeout=30)
 
-            with pytest.raises(FFmpegError, match="timed out"):
+            with pytest.raises(FFmpegError, match="timed out after 60.0s"):
                 extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
 
     @patch("youtube_tools_mcp.youtube.downloader.shutil")
@@ -171,16 +173,22 @@ class TestExtractFramesBatch:
     @patch("youtube_tools_mcp.youtube.downloader.shutil")
     def test_extracts_multiple_frames(self, mock_shutil: MagicMock, mock_extract: MagicMock) -> None:
         mock_shutil.which.return_value = "/usr/bin/ffmpeg"
-        mock_extract.side_effect = lambda url, ts, path, max_width=None, quality=5: path
+        mock_extract.side_effect = lambda url, ts, path, max_width=None, quality=5, ffmpeg_timeout=60.0: path
 
         output_dir = Path("/tmp/frames")
         timestamps = [0.0, 5.0, 10.0]
 
         with patch.object(Path, "mkdir"):
-            result = extract_frames_batch("https://stream.url/video.mp4", timestamps, output_dir)
+            result = extract_frames_batch(
+                "https://stream.url/video.mp4",
+                timestamps,
+                output_dir,
+                ffmpeg_timeout=15.0,
+            )
 
         assert len(result) == 3
         assert all(isinstance(p, Path) for p in result)
+        assert mock_extract.call_args.kwargs["ffmpeg_timeout"] == 15.0
 
     @patch("youtube_tools_mcp.youtube.downloader.extract_frame")
     @patch("youtube_tools_mcp.youtube.downloader.shutil")

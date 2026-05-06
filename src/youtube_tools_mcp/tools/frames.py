@@ -93,6 +93,7 @@ def extract_video_frame(
     output_dir: str | None = None,
     max_width: int | None = None,
     jpeg_quality: int = 5,
+    ffmpeg_timeout: float = 60.0,
     return_images: bool = False,
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
@@ -115,6 +116,8 @@ def extract_video_frame(
     Returns:
         MCP result with either TextContent (file path) or ImageContent (inline).
     """
+    if ffmpeg_timeout <= 0:
+        raise _err("ffmpeg_timeout must be positive")
     if vision_analysis and return_images:
         raise _err("vision_analysis cannot be combined with return_images")
 
@@ -132,7 +135,14 @@ def extract_video_frame(
         tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frame_analysis_"))
         try:
             out_path = tmp_dir / "frame.jpg"
-            extract_frame(stream_url, timestamp, out_path, max_width=max_width, quality=jpeg_quality)
+            extract_frame(
+                stream_url,
+                timestamp,
+                out_path,
+                max_width=max_width,
+                quality=jpeg_quality,
+                ffmpeg_timeout=ffmpeg_timeout,
+            )
             analyses = _analyze_frames([out_path], vision_prompt, vision_model)
             return CallToolResult(content=[_analysis_result_text(analyses, [timestamp], video_id)])
         except FFmpegNotFoundError as exc:
@@ -146,7 +156,14 @@ def extract_video_frame(
         tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frame_"))
         try:
             out_path = tmp_dir / "frame.jpg"
-            extract_frame(stream_url, timestamp, out_path, max_width=max_width, quality=jpeg_quality)
+            extract_frame(
+                stream_url,
+                timestamp,
+                out_path,
+                max_width=max_width,
+                quality=jpeg_quality,
+                ffmpeg_timeout=ffmpeg_timeout,
+            )
             return CallToolResult(content=[_image_content(out_path)])
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc
@@ -158,7 +175,14 @@ def extract_video_frame(
         save_dir = _get_save_dir(output_dir, video_id)
         try:
             out_path = save_dir / f"frame_{timestamp:.0f}.jpg"
-            extract_frame(stream_url, timestamp, out_path, max_width=max_width, quality=jpeg_quality)
+            extract_frame(
+                stream_url,
+                timestamp,
+                out_path,
+                max_width=max_width,
+                quality=jpeg_quality,
+                ffmpeg_timeout=ffmpeg_timeout,
+            )
             return CallToolResult(content=[_frames_result_text([out_path], [timestamp], video_id, save_dir)])
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc
@@ -172,6 +196,7 @@ def extract_video_frames(
     output_dir: str | None = None,
     max_width: int | None = None,
     jpeg_quality: int = 5,
+    ffmpeg_timeout: float = 60.0,
     return_images: bool = False,
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
@@ -196,6 +221,8 @@ def extract_video_frames(
     """
     if len(timestamps) > _MAX_FRAMES:
         raise _err(f"Too many timestamps ({len(timestamps)}), maximum is {_MAX_FRAMES}")
+    if ffmpeg_timeout <= 0:
+        raise _err("ffmpeg_timeout must be positive")
     if vision_analysis and return_images:
         raise _err("vision_analysis cannot be combined with return_images")
 
@@ -212,7 +239,14 @@ def extract_video_frames(
     if vision_analysis:
         tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frames_analysis_"))
         try:
-            paths = extract_frames_batch(stream_url, timestamps, tmp_dir, max_width=max_width, quality=jpeg_quality)
+            paths = extract_frames_batch(
+                stream_url,
+                timestamps,
+                tmp_dir,
+                max_width=max_width,
+                quality=jpeg_quality,
+                ffmpeg_timeout=ffmpeg_timeout,
+            )
             return CallToolResult(
                 content=[
                     _analysis_result_text(_analyze_frames(paths, vision_prompt, vision_model), timestamps, video_id)
@@ -228,7 +262,14 @@ def extract_video_frames(
     if return_images:
         tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frames_"))
         try:
-            paths = extract_frames_batch(stream_url, timestamps, tmp_dir, max_width=max_width, quality=jpeg_quality)
+            paths = extract_frames_batch(
+                stream_url,
+                timestamps,
+                tmp_dir,
+                max_width=max_width,
+                quality=jpeg_quality,
+                ffmpeg_timeout=ffmpeg_timeout,
+            )
             return CallToolResult(content=[_image_content(p) for p in paths])
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc
@@ -239,7 +280,14 @@ def extract_video_frames(
     else:
         save_dir = _get_save_dir(output_dir, video_id)
         try:
-            paths = extract_frames_batch(stream_url, timestamps, save_dir, max_width=max_width, quality=jpeg_quality)
+            paths = extract_frames_batch(
+                stream_url,
+                timestamps,
+                save_dir,
+                max_width=max_width,
+                quality=jpeg_quality,
+                ffmpeg_timeout=ffmpeg_timeout,
+            )
             return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc
@@ -254,6 +302,7 @@ def extract_frames_every(
     output_dir: str | None = None,
     max_width: int | None = None,
     jpeg_quality: int = 5,
+    ffmpeg_timeout: float = 60.0,
     return_images: bool = False,
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
@@ -281,6 +330,8 @@ def extract_frames_every(
         raise _err(f"max_frames ({max_frames}) exceeds limit ({_MAX_FRAMES})")
     if interval_sec <= 0:
         raise _err("interval_sec must be positive")
+    if ffmpeg_timeout <= 0:
+        raise _err("ffmpeg_timeout must be positive")
     if vision_analysis and return_images:
         raise _err("vision_analysis cannot be combined with return_images")
 
@@ -303,7 +354,14 @@ def extract_frames_every(
     if vision_analysis:
         tmp_dir = Path(tempfile.mkdtemp(prefix="yt_interval_analysis_"))
         try:
-            paths = extract_frames_batch(stream_url, timestamps, tmp_dir, max_width=max_width, quality=jpeg_quality)
+            paths = extract_frames_batch(
+                stream_url,
+                timestamps,
+                tmp_dir,
+                max_width=max_width,
+                quality=jpeg_quality,
+                ffmpeg_timeout=ffmpeg_timeout,
+            )
             return CallToolResult(
                 content=[
                     _analysis_result_text(_analyze_frames(paths, vision_prompt, vision_model), timestamps, video_id)
@@ -319,7 +377,14 @@ def extract_frames_every(
     if return_images:
         tmp_dir = Path(tempfile.mkdtemp(prefix="yt_interval_"))
         try:
-            paths = extract_frames_batch(stream_url, timestamps, tmp_dir, max_width=max_width, quality=jpeg_quality)
+            paths = extract_frames_batch(
+                stream_url,
+                timestamps,
+                tmp_dir,
+                max_width=max_width,
+                quality=jpeg_quality,
+                ffmpeg_timeout=ffmpeg_timeout,
+            )
             return CallToolResult(content=[_image_content(p) for p in paths])
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc
@@ -330,7 +395,14 @@ def extract_frames_every(
     else:
         save_dir = _get_save_dir(output_dir, video_id)
         try:
-            paths = extract_frames_batch(stream_url, timestamps, save_dir, max_width=max_width, quality=jpeg_quality)
+            paths = extract_frames_batch(
+                stream_url,
+                timestamps,
+                save_dir,
+                max_width=max_width,
+                quality=jpeg_quality,
+                ffmpeg_timeout=ffmpeg_timeout,
+            )
             return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc

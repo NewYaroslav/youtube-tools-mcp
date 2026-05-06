@@ -34,7 +34,7 @@ class TestExtractVideoFrame:
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
-            result = extract_video_frame(SAMPLE_VIDEO_ID, 10.0)
+            result = extract_video_frame(SAMPLE_VIDEO_ID, 10.0, ffmpeg_timeout=12.5)
 
         assert isinstance(result, CallToolResult)
         assert len(result.content) == 1
@@ -118,6 +118,10 @@ class TestExtractVideoFrame:
         ):
             extract_video_frame(SAMPLE_VIDEO_ID, 10.0)
 
+    def test_invalid_ffmpeg_timeout_raises_mcp_error(self) -> None:
+        with pytest.raises(McpError, match="ffmpeg_timeout must be positive"):
+            extract_video_frame(SAMPLE_VIDEO_ID, 10.0, ffmpeg_timeout=0.0)
+
 
 class TestExtractVideoFrames:
     @patch(_RUN)
@@ -130,7 +134,7 @@ class TestExtractVideoFrames:
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
-            result = extract_video_frames(SAMPLE_VIDEO_ID, [0.0, 5.0, 10.0])
+            result = extract_video_frames(SAMPLE_VIDEO_ID, [0.0, 5.0, 10.0], ffmpeg_timeout=12.5)
 
         assert isinstance(result, CallToolResult)
         assert len(result.content) == 1
@@ -220,7 +224,7 @@ class TestExtractFramesEvery:
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
-            result = extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, max_frames=4)
+            result = extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, max_frames=4, ffmpeg_timeout=12.5)
 
         assert isinstance(result, CallToolResult)
         assert len(result.content) == 1

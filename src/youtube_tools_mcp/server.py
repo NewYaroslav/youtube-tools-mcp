@@ -82,6 +82,7 @@ def extract_video_frame(
     output_dir: str | None = None,
     max_width: int | None = None,
     jpeg_quality: int = 5,
+    ffmpeg_timeout: float = 60.0,
     return_images: bool = False,
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
@@ -99,6 +100,7 @@ def extract_video_frame(
         output_dir: Directory to save frame. Defaults to system temp/yt-frames.
         max_width: Maximum frame width in pixels. None = original size.
         jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
+        ffmpeg_timeout: Timeout for each ffmpeg subprocess in seconds. Defaults to 60.
         return_images: True = inline images (vision models), False = file paths.
         vision_analysis: True = return text description from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
@@ -110,6 +112,7 @@ def extract_video_frame(
         output_dir,
         max_width,
         jpeg_quality,
+        ffmpeg_timeout,
         return_images,
         vision_analysis,
         vision_prompt,
@@ -124,6 +127,7 @@ def extract_video_frames(
     output_dir: str | None = None,
     max_width: int | None = None,
     jpeg_quality: int = 5,
+    ffmpeg_timeout: float = 60.0,
     return_images: bool = False,
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
@@ -141,6 +145,7 @@ def extract_video_frames(
         output_dir: Directory to save frames. Defaults to system temp/yt-frames.
         max_width: Maximum frame width in pixels. None = original size.
         jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
+        ffmpeg_timeout: Timeout for each ffmpeg subprocess in seconds. Defaults to 60.
         return_images: True = inline images (vision models), False = file paths.
         vision_analysis: True = return text descriptions from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
@@ -152,6 +157,7 @@ def extract_video_frames(
         output_dir,
         max_width,
         jpeg_quality,
+        ffmpeg_timeout,
         return_images,
         vision_analysis,
         vision_prompt,
@@ -167,6 +173,7 @@ def extract_frames_every(
     output_dir: str | None = None,
     max_width: int | None = None,
     jpeg_quality: int = 5,
+    ffmpeg_timeout: float = 60.0,
     return_images: bool = False,
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
@@ -185,6 +192,7 @@ def extract_frames_every(
         output_dir: Directory to save frames. Defaults to system temp/yt-frames.
         max_width: Maximum frame width in pixels. None = original size.
         jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
+        ffmpeg_timeout: Timeout for each ffmpeg subprocess in seconds. Defaults to 60.
         return_images: True = inline images (vision models), False = file paths.
         vision_analysis: True = return text descriptions from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
@@ -197,6 +205,7 @@ def extract_frames_every(
         output_dir,
         max_width,
         jpeg_quality,
+        ffmpeg_timeout,
         return_images,
         vision_analysis,
         vision_prompt,
