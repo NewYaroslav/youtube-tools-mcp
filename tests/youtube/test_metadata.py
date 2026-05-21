@@ -33,6 +33,9 @@ class TestParseIso8601Duration:
     def test_none_value(self) -> None:
         assert _parse_iso8601_duration(None) is None
 
+    def test_days_duration(self) -> None:
+        assert _parse_iso8601_duration("P1DT2H3M4S") == 93784.0
+
     def test_invalid_format(self) -> None:
         assert _parse_iso8601_duration("not-a-duration") is None
 
@@ -126,22 +129,38 @@ class TestFetchVideoMetadataYtdlp:
 class TestFetchVideoMetadataApi:
     @patch("youtube_tools_mcp.youtube.metadata._youtube_api_get")
     def test_fetch_via_api(self, mock_get: MagicMock) -> None:
-        mock_get.return_value = {
-            "items": [
-                {
-                    "snippet": {
-                        "title": "API Video",
-                        "description": "API desc",
-                        "channelId": "UCapi",
-                        "channelTitle": "API Channel",
-                        "publishedAt": "2026-05-20T10:00:00Z",
-                    },
-                    "contentDetails": {
-                        "duration": "PT5M30S",
-                    },
-                },
-            ],
-        }
+        def _side_effect(path: str, _params: dict[str, str]) -> dict[str, object]:
+            if path == "videos":
+                return {
+                    "items": [
+                        {
+                            "snippet": {
+                                "title": "API Video",
+                                "description": "API desc",
+                                "channelId": "UCapi",
+                                "channelTitle": "API Channel",
+                                "publishedAt": "2026-05-20T10:00:00Z",
+                            },
+                            "contentDetails": {
+                                "duration": "PT5M30S",
+                            },
+                        },
+                    ],
+                }
+            if path == "channels":
+                return {
+                    "items": [
+                        {
+                            "snippet": {
+                                "description": "Channel desc",
+                                "customUrl": "api_channel",
+                            },
+                        },
+                    ],
+                }
+            return {}
+
+        mock_get.side_effect = _side_effect
 
         result = fetch_video_metadata_api(SAMPLE_VIDEO_ID, "test-key")
 
@@ -152,6 +171,8 @@ class TestFetchVideoMetadataApi:
         assert result.duration == 330.0
         assert result.upload_date == "2026-05-20T10:00:00Z"
         assert result.source == "youtube-data-api"
+        assert result.channel_description == "Channel desc"
+        assert result.channel_url == "https://www.youtube.com/api_channel"
 
     @patch("youtube_tools_mcp.youtube.metadata._youtube_api_get")
     def test_api_no_items_raises(self, mock_get: MagicMock) -> None:
@@ -166,6 +187,39 @@ class TestFetchVideoMetadataApi:
 
         with pytest.raises(MetadataFetchError, match="no snippet"):
             fetch_video_metadata_api(SAMPLE_VIDEO_ID, "test-key")
+
+    @patch("youtube_tools_mcp.youtube.metadata._youtube_api_get")
+    def test_api_channel_failure_returns_video_with_warning(self, mock_get: MagicMock) -> None:
+        def _side_effect(path: str, _params: dict[str, str]) -> dict[str, object]:
+            if path == "videos":
+                return {
+                    "items": [
+                        {
+                            "snippet": {
+                                "title": "API Video",
+                                "description": "API desc",
+                                "channelId": "UCapi",
+                                "channelTitle": "API Channel",
+                                "publishedAt": "2026-05-20T10:00:00Z",
+                            },
+                            "contentDetails": {
+                                "duration": "PT5M30S",
+                            },
+                        },
+                    ],
+                }
+            if path == "channels":
+                raise MetadataFetchError("channel quota exceeded")
+            return {}
+
+        mock_get.side_effect = _side_effect
+
+        result = fetch_video_metadata_api(SAMPLE_VIDEO_ID, "test-key")
+
+        assert result.title == "API Video"
+        assert result.source == "youtube-data-api"
+        assert len(result.warnings) == 1
+        assert "channel quota exceeded" in result.warnings[0]
 
 
 class TestFetchVideoMetadataFallback:

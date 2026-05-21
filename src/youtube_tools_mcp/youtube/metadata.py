@@ -20,10 +20,13 @@ class MetadataFetchError(MetadataError):
 
 
 _DURATION_PATTERN = re.compile(
-    r"^PT"
+    r"^P"
+    r"(?:(?P<days>\d+)D)?"
+    r"(?:T"
     r"(?:(?P<hours>\d+)H)?"
     r"(?:(?P<minutes>\d+)M)?"
-    r"(?:(?P<seconds>\d+)S)?$",
+    r"(?:(?P<seconds>\d+)S)?"
+    r")?$",
 )
 
 
@@ -74,11 +77,12 @@ def _parse_iso8601_duration(value: object) -> float | None:
     if match is None:
         return None
 
+    days = int(match.group("days") or 0)
     hours = int(match.group("hours") or 0)
     minutes = int(match.group("minutes") or 0)
     seconds = int(match.group("seconds") or 0)
 
-    return float(hours * 3600 + minutes * 60 + seconds)
+    return float(days * 86400 + hours * 3600 + minutes * 60 + seconds)
 
 
 def _extract_metadata_from_ytdlp_info(
@@ -210,14 +214,18 @@ def fetch_video_metadata_api(
     )
 
     if include_channel_description and channel_id is not None:
-        channel_data = _youtube_api_get(
-            "channels",
-            {
-                "part": "snippet",
-                "id": channel_id,
-                "key": api_key,
-            },
-        )
+        try:
+            channel_data = _youtube_api_get(
+                "channels",
+                {
+                    "part": "snippet",
+                    "id": channel_id,
+                    "key": api_key,
+                },
+            )
+        except MetadataError as exc:
+            metadata.warnings.append(f"youtube-data-api channel metadata failed: {exc}")
+            return metadata
 
         channel_item = _first_item(channel_data)
         if channel_item is not None:
