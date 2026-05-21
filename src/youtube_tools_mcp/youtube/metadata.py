@@ -82,6 +82,9 @@ def _parse_iso8601_duration(value: object) -> float | None:
     minutes = int(match.group("minutes") or 0)
     seconds = int(match.group("seconds") or 0)
 
+    if days == 0 and hours == 0 and minutes == 0 and seconds == 0:
+        return None
+
     return float(days * 86400 + hours * 3600 + minutes * 60 + seconds)
 
 

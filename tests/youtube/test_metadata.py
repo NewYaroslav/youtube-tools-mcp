@@ -36,6 +36,12 @@ class TestParseIso8601Duration:
     def test_days_duration(self) -> None:
         assert _parse_iso8601_duration("P1DT2H3M4S") == 93784.0
 
+    def test_empty_period_returns_none(self) -> None:
+        assert _parse_iso8601_duration("P") is None
+
+    def test_empty_time_period_returns_none(self) -> None:
+        assert _parse_iso8601_duration("PT") is None
+
     def test_invalid_format(self) -> None:
         assert _parse_iso8601_duration("not-a-duration") is None
 
