@@ -21,12 +21,15 @@ from youtube_tools_mcp.tools.frames import (
 )
 from youtube_tools_mcp.tools.images import analyze_image_file as _analyze_image_file
 from youtube_tools_mcp.tools.images import read_image_file as _read_image_file
+from youtube_tools_mcp.tools.metadata import get_youtube_video_metadata as _get_youtube_video_metadata
 from youtube_tools_mcp.tools.transcript import get_youtube_transcript as _get_youtube_transcript
+from youtube_tools_mcp.tools.video_context import get_youtube_video_context as _get_youtube_video_context
 
 mcp = FastMCP(
     "youtube-tools-mcp",
     instructions=(
-        "MCP server for YouTube transcript extraction, text cleanup, frame extraction, and video/audio download."
+        "MCP server for YouTube transcript extraction, metadata, text cleanup, "
+        "frame extraction, and video/audio download."
     ),
 )
 
@@ -43,6 +46,45 @@ def get_youtube_transcript(url_or_id: str, languages: list[str] | None = None) -
         languages: Preferred language codes in priority order. Defaults to ["ru", "en"].
     """
     return _get_youtube_transcript(url_or_id, languages)
+
+
+@mcp.tool()
+def get_youtube_video_metadata(
+    url_or_id: str,
+    include_channel_description: bool = True,
+) -> str:
+    """Fetch YouTube video metadata and channel information.
+
+    Returns JSON with video title, description, channel URL,
+    and channel description when available.
+
+    Args:
+        url_or_id: YouTube video URL or 11-character video ID.
+        include_channel_description: Try to include channel description when available.
+    """
+    return _get_youtube_video_metadata(url_or_id, include_channel_description)
+
+
+@mcp.tool()
+def get_youtube_video_context(
+    url_or_id: str,
+    languages: list[str] | None = None,
+    include_channel_description: bool = True,
+) -> str:
+    """Fetch transcript plus video and channel metadata.
+
+    Returns JSON with metadata and timestamped transcript text.
+
+    Args:
+        url_or_id: YouTube video URL or 11-character video ID.
+        languages: Preferred transcript language codes. Defaults to ["ru", "en"].
+        include_channel_description: Try to include channel description when available.
+    """
+    return _get_youtube_video_context(
+        url_or_id,
+        languages,
+        include_channel_description,
+    )
 
 
 @mcp.tool()
