@@ -22,6 +22,8 @@ Designed for Claude Code, VSCodium, and any MCP-compatible agent.
 | Tool | Description |
 |---|---|
 | `get_youtube_transcript` | Extract transcript/subtitles from a YouTube video |
+| `get_youtube_video_metadata` | Fetch video title, description, channel URL, and channel description when available |
+| `get_youtube_video_context` | Fetch video metadata plus transcript in one JSON response |
 | `clean_transcript` | Clean and format auto-generated transcript text |
 | `extract_video_frame` | Extract a single frame at a specific timestamp |
 | `extract_video_frames` | Extract multiple frames at specified timestamps |
@@ -30,6 +32,28 @@ Designed for Claude Code, VSCodium, and any MCP-compatible agent.
 | `analyze_image_file` | Analyze a local image with a configured vision model |
 | `download_video` | Download a YouTube video (best, 720p, 480p, 360p) |
 | `download_audio` | Download audio only (mp3, m4a, opus, wav) |
+
+## Metadata and context
+
+`get_youtube_video_metadata` returns JSON with:
+
+- `title`
+- `description`
+- `channel_title`
+- `channel_url`
+- `channel_description` (when available)
+- `duration` (in seconds)
+- `upload_date`
+
+Without `YOUTUBE_API_KEY`, metadata is fetched via `yt-dlp`. With `YOUTUBE_API_KEY`, richer channel descriptions are fetched via YouTube Data API, and the response includes a `warnings` field if the API falls back to `yt-dlp`.
+
+`get_youtube_video_context` returns a single JSON object with:
+
+- `metadata` (same fields as above)
+- `transcript` (timestamped transcript text)
+- `metadata_error` (only if metadata failed but transcript succeeded)
+
+This means `get_youtube_video_context` is partially resilient: a transcript is still returned even if metadata could not be fetched.
 
 ## Frame and image modes
 
