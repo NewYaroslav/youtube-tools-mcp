@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict, dataclass
+import re
+from dataclasses import asdict, dataclass, field
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -16,6 +17,14 @@ class MetadataError(Exception):
 
 class MetadataFetchError(MetadataError):
     """Failed to fetch YouTube metadata."""
+
+
+_DURATION_PATTERN = re.compile(
+    r"^PT"
+    r"(?:(?P<hours>\d+)H)?"
+    r"(?:(?P<minutes>\d+)M)?"
+    r"(?:(?P<seconds>\d+)S)?$",
+)
 
 
 @dataclass(slots=True)
@@ -33,6 +42,7 @@ class YouTubeVideoMetadata:
     duration: float | None = None
     upload_date: str | None = None
     source: str = "yt-dlp"
+    warnings: list[str] = field(default_factory=list)
 
 
 def _clean_string(value: object) -> str | None:
@@ -53,6 +63,22 @@ def _normalize_upload_date(value: object) -> str | None:
         return f"{value[0:4]}-{value[4:6]}-{value[6:8]}"
 
     return _clean_string(value)
+
+
+def _parse_iso8601_duration(value: object) -> float | None:
+    """Parse YouTube ISO-8601 duration to seconds."""
+    if not isinstance(value, str):
+        return None
+
+    match = _DURATION_PATTERN.match(value)
+    if match is None:
+        return None
+
+    hours = int(match.group("hours") or 0)
+    minutes = int(match.group("minutes") or 0)
+    seconds = int(match.group("seconds") or 0)
+
+    return float(hours * 3600 + minutes * 60 + seconds)
 
 
 def _extract_metadata_from_ytdlp_info(
@@ -149,7 +175,7 @@ def fetch_video_metadata_api(
     video_data = _youtube_api_get(
         "videos",
         {
-            "part": "snippet",
+            "part": "snippet,contentDetails",
             "id": video_id,
             "key": api_key,
         },
@@ -165,6 +191,11 @@ def fetch_video_metadata_api(
 
     channel_id = _clean_string(snippet.get("channelId"))
 
+    content_details = video_item.get("contentDetails")
+    duration: float | None = None
+    if isinstance(content_details, dict):
+        duration = _parse_iso8601_duration(content_details.get("duration"))
+
     metadata = YouTubeVideoMetadata(
         video_id=video_id,
         video_url=normalize_url(video_id),
@@ -173,6 +204,7 @@ def fetch_video_metadata_api(
         channel_id=channel_id,
         channel_title=_clean_string(snippet.get("channelTitle")),
         channel_url=f"https://www.youtube.com/channel/{channel_id}" if channel_id else None,
+        duration=duration,
         upload_date=_clean_string(snippet.get("publishedAt")),
         source="youtube-data-api",
     )
@@ -213,8 +245,10 @@ def fetch_video_metadata(
     if api_key:
         try:
             return fetch_video_metadata_api(video_id, api_key, include_channel_description)
-        except MetadataError:
-            pass
+        except MetadataError as exc:
+            metadata = fetch_video_metadata_ytdlp(video_id)
+            metadata.warnings.append(f"youtube-data-api failed: {exc}")
+            return metadata
 
     return fetch_video_metadata_ytdlp(video_id)
 

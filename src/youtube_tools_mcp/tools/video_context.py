@@ -7,7 +7,11 @@ from mcp.shared.exceptions import McpError
 from mcp.types import INTERNAL_ERROR, ErrorData
 
 from youtube_tools_mcp.utils.url import extract_video_id
-from youtube_tools_mcp.youtube.metadata import MetadataError, fetch_video_metadata
+from youtube_tools_mcp.youtube.metadata import (
+    MetadataError,
+    YouTubeVideoMetadata,
+    fetch_video_metadata,
+)
 from youtube_tools_mcp.youtube.transcript import (
     InvalidVideoIdError,
     NoTranscriptFoundError,
@@ -36,6 +40,8 @@ def get_youtube_video_context(
 
     Returns:
         Pretty JSON with metadata and timestamped transcript text.
+        If metadata fails but transcript succeeds, metadata will be null
+        and a metadata_error field will be present instead.
     """
     if languages is None:
         languages = ["ru", "en"]
@@ -45,13 +51,15 @@ def get_youtube_video_context(
     except ValueError as exc:
         raise _err(str(exc)) from exc
 
+    metadata: YouTubeVideoMetadata | None = None
+    metadata_error: str | None = None
     try:
         metadata = fetch_video_metadata(
             video_id,
             include_channel_description=include_channel_description,
         )
     except MetadataError as exc:
-        raise _err(f"Failed to fetch video metadata: {exc}") from exc
+        metadata_error = f"Failed to fetch video metadata: {exc}"
 
     fetcher = TranscriptFetcher()
     try:
@@ -67,8 +75,13 @@ def get_youtube_video_context(
     except TranscriptError as exc:
         raise _err(f"Failed to fetch transcript: {exc}") from exc
 
-    payload = {
-        "metadata": asdict(metadata),
+    payload: dict[str, object] = {
+        "metadata": asdict(metadata) if metadata is not None else None,
         "transcript": transcript,
     }
+    if metadata_error is not None:
+        payload["metadata_error"] = metadata_error
+    if metadata is not None and metadata.warnings:
+        payload["metadata_warnings"] = metadata.warnings
+
     return json.dumps(payload, ensure_ascii=False, indent=2)
