@@ -10,6 +10,7 @@ from youtube_transcript_api._errors import (
     TranscriptsDisabled,
     VideoUnplayable,
 )
+from youtube_transcript_api.proxies import GenericProxyConfig
 
 from youtube_tools_mcp.youtube.transcript import (
     InvalidVideoIdError,
@@ -130,3 +131,27 @@ class TestTranscriptFetcher:
         fetcher = TranscriptFetcher()
         with pytest.raises(TranscriptFetchError, match="Unexpected error"):
             fetcher.fetch(SAMPLE_VIDEO_ID)
+
+
+class TestTranscriptFetcherProxy:
+    @patch.dict("os.environ", {"HTTPS_PROXY": "http://127.0.0.1:8080"})
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    def test_init_with_proxy_passes_proxy_config(self, mock_api_cls: MagicMock) -> None:
+        TranscriptFetcher()
+
+        call_kwargs = mock_api_cls.call_args[1]
+        assert "proxy_config" in call_kwargs
+        proxy_config = call_kwargs["proxy_config"]
+        assert isinstance(proxy_config, GenericProxyConfig)
+        assert proxy_config.to_requests_dict() == {
+            "http": "http://127.0.0.1:8080",
+            "https": "http://127.0.0.1:8080",
+        }
+
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    def test_init_without_proxy_no_proxy_config(self, mock_api_cls: MagicMock) -> None:
+        with patch.dict("os.environ", {}, clear=True):
+            TranscriptFetcher()
+
+        call_kwargs = mock_api_cls.call_args[1]
+        assert "proxy_config" not in call_kwargs
