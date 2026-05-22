@@ -127,6 +127,9 @@ def fetch_video_metadata_ytdlp(video_id: str) -> YouTubeVideoMetadata:
         "no_warnings": True,
         "skip_download": True,
     }
+    proxy = get_proxy_url()
+    if proxy:
+        ydl_opts["proxy"] = proxy
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

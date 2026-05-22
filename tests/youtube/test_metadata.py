@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
+from urllib.request import ProxyHandler
 
 import pytest
 
@@ -130,6 +131,69 @@ class TestFetchVideoMetadataYtdlp:
 
         with pytest.raises(MetadataFetchError, match="returned no metadata"):
             fetch_video_metadata_ytdlp(SAMPLE_VIDEO_ID)
+
+    @patch.dict("os.environ", {"HTTPS_PROXY": "http://127.0.0.1:8080"})
+    @patch("yt_dlp.YoutubeDL")
+    def test_uses_proxy_when_set(self, mock_ydl_cls: MagicMock) -> None:
+        mock_ydl = MagicMock()
+        mock_ydl_cls.return_value.__enter__ = MagicMock(return_value=mock_ydl)
+        mock_ydl_cls.return_value.__exit__ = MagicMock(return_value=False)
+        mock_ydl.extract_info.return_value = {"title": "Proxy Test", "duration": 60}
+
+        fetch_video_metadata_ytdlp(SAMPLE_VIDEO_ID)
+
+        opts = mock_ydl_cls.call_args[0][0]
+        assert opts["proxy"] == "http://127.0.0.1:8080"
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_no_proxy_when_not_set(self, mock_ydl_cls: MagicMock) -> None:
+        mock_ydl = MagicMock()
+        mock_ydl_cls.return_value.__enter__ = MagicMock(return_value=mock_ydl)
+        mock_ydl_cls.return_value.__exit__ = MagicMock(return_value=False)
+        mock_ydl.extract_info.return_value = {"title": "No Proxy Test", "duration": 30}
+
+        with patch.dict("os.environ", {}, clear=True):
+            fetch_video_metadata_ytdlp(SAMPLE_VIDEO_ID)
+
+        opts = mock_ydl_cls.call_args[0][0]
+        assert "proxy" not in opts
+
+
+class TestYoutubeApiGet:
+    @patch("youtube_tools_mcp.youtube.metadata.build_opener")
+    @patch("youtube_tools_mcp.youtube.metadata.urlopen")
+    @patch.dict("os.environ", {"HTTPS_PROXY": "http://127.0.0.1:8080"})
+    def test_uses_proxy_when_set(self, mock_urlopen: MagicMock, mock_build_opener: MagicMock) -> None:
+        mock_opener = MagicMock()
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"items": []}'
+        mock_opener.open.return_value.__enter__ = MagicMock(return_value=mock_response)
+        mock_opener.open.return_value.__exit__ = MagicMock(return_value=False)
+        mock_build_opener.return_value = mock_opener
+
+        from youtube_tools_mcp.youtube.metadata import _youtube_api_get
+
+        _youtube_api_get("videos", {"id": SAMPLE_VIDEO_ID, "key": "test"})
+
+        mock_build_opener.assert_called_once()
+        handler = mock_build_opener.call_args[0][0]
+        assert isinstance(handler, ProxyHandler)
+
+    @patch("youtube_tools_mcp.youtube.metadata.urlopen")
+    @patch("youtube_tools_mcp.youtube.metadata.build_opener")
+    def test_no_proxy_when_not_set(self, mock_build_opener: MagicMock, mock_urlopen: MagicMock) -> None:
+        mock_response = MagicMock()
+        mock_response.read.return_value = b'{"items": []}'
+        mock_urlopen.return_value.__enter__ = MagicMock(return_value=mock_response)
+        mock_urlopen.return_value.__exit__ = MagicMock(return_value=False)
+
+        from youtube_tools_mcp.youtube.metadata import _youtube_api_get
+
+        with patch.dict("os.environ", {}, clear=True):
+            _youtube_api_get("videos", {"id": SAMPLE_VIDEO_ID, "key": "test"})
+
+        mock_build_opener.assert_not_called()
+        mock_urlopen.assert_called_once()
 
 
 class TestFetchVideoMetadataApi:
