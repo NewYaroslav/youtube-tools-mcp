@@ -222,7 +222,12 @@ When installed via `uvx` from an MCP client, the server may run outside your pro
 
 ### Proxy support
 
-All network tools support an optional HTTP/HTTPS proxy via standard environment variables. When a proxy is set, it is applied to:
+All network tools support an optional HTTP/HTTPS proxy. You can set it in two ways:
+
+1. **Per-tool call** — pass a `proxy` argument directly in any tool invocation (e.g. `proxy: "http://user:pass@host:8080"`). This takes precedence and is useful when the calling agent knows which proxy to use.
+2. **Environment variable** — set `HTTPS_PROXY` or `HTTP_PROXY` in the MCP client `env` block. This is applied automatically when no per-call proxy is provided.
+
+When a proxy is set, it is applied to:
 
 - `youtube-transcript-api` transcript requests
 - YouTube Data API calls via `urllib`

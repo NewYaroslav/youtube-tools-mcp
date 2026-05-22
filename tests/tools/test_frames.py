@@ -122,6 +122,20 @@ class TestExtractVideoFrame:
         with pytest.raises(McpError, match="ffmpeg_timeout must be positive"):
             extract_video_frame(SAMPLE_VIDEO_ID, 10.0, ffmpeg_timeout=0.0)
 
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_passes_proxy_to_get_stream_url(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)) as mock_stream,
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            extract_video_frame(SAMPLE_VIDEO_ID, 10.0, proxy="http://proxy:8080")
+
+        mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy="http://proxy:8080")
+
 
 class TestExtractVideoFrames:
     @patch(_RUN)

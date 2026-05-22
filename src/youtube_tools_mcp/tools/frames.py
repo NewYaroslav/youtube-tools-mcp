@@ -113,6 +113,10 @@ def extract_video_frame(
         max_width: Maximum frame width in pixels. None = original size.
         jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
         return_images: True = return inline images (vision models), False = file paths.
+        vision_analysis: True = return text description from configured vision model.
+        vision_prompt: Optional prompt for vision analysis.
+        vision_model: Optional model override for vision analysis.
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
 
     Returns:
         MCP result with either TextContent (file path) or ImageContent (inline).
@@ -217,6 +221,10 @@ def extract_video_frames(
         max_width: Maximum frame width in pixels. None = original size.
         jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
         return_images: True = return inline images (vision models), False = file paths.
+        vision_analysis: True = return text descriptions from configured vision model.
+        vision_prompt: Optional prompt for vision analysis.
+        vision_model: Optional model override for vision analysis.
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
 
     Returns:
         MCP result with either TextContent (file paths) or ImageContent list (inline).
@@ -325,6 +333,10 @@ def extract_frames_every(
         max_width: Maximum frame width in pixels. None = original size.
         jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
         return_images: True = return inline images (vision models), False = file paths.
+        vision_analysis: True = return text descriptions from configured vision model.
+        vision_prompt: Optional prompt for vision analysis.
+        vision_model: Optional model override for vision analysis.
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
 
     Returns:
         MCP result with either TextContent (file paths) or ImageContent list (inline).

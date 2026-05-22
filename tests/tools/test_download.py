@@ -51,6 +51,17 @@ class TestDownloadVideoFile:
         ):
             download_video_file("dQw4w9WgXcQ")
 
+    def test_passes_proxy_to_download_video(self, tmp_path: Path) -> None:
+        fake_path = tmp_path / "test_video.mp4"
+        fake_path.write_text("fake")
+
+        with (
+            patch("youtube_tools_mcp.tools.download.extract_video_id", return_value="dQw4w9WgXcQ"),
+            patch("youtube_tools_mcp.tools.download.download_video", return_value=fake_path) as mock_dl,
+        ):
+            download_video_file("dQw4w9WgXcQ", str(tmp_path), "720p", proxy="http://proxy:8080")
+            mock_dl.assert_called_once_with("dQw4w9WgXcQ", tmp_path.resolve(), "720p", proxy="http://proxy:8080")
+
 
 class TestDownloadAudioFile:
     def test_returns_path_on_success(self, tmp_path: Path) -> None:
@@ -103,3 +114,14 @@ class TestDownloadAudioFile:
         ):
             download_audio_file("dQw4w9WgXcQ", str(tmp_path))
             mock_dl.assert_called_once_with("dQw4w9WgXcQ", tmp_path.resolve(), "mp3", proxy=None)
+
+    def test_passes_proxy_to_download_audio(self, tmp_path: Path) -> None:
+        fake_path = tmp_path / "test_audio.mp3"
+        fake_path.write_text("fake")
+
+        with (
+            patch("youtube_tools_mcp.tools.download.extract_video_id", return_value="dQw4w9WgXcQ"),
+            patch("youtube_tools_mcp.tools.download.download_audio", return_value=fake_path) as mock_dl,
+        ):
+            download_audio_file("dQw4w9WgXcQ", str(tmp_path), "mp3", proxy="http://proxy:8080")
+            mock_dl.assert_called_once_with("dQw4w9WgXcQ", tmp_path.resolve(), "mp3", proxy="http://proxy:8080")

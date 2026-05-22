@@ -158,19 +158,20 @@ def extract_video_frame(
         vision_analysis: True = return text description from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
     """
     return _extract_video_frame(
-        url_or_id,
-        timestamp,
-        output_dir,
-        max_width,
-        jpeg_quality,
-        ffmpeg_timeout,
-        return_images,
-        vision_analysis,
-        vision_prompt,
-        vision_model,
-        proxy,
+        url_or_id=url_or_id,
+        timestamp=timestamp,
+        output_dir=output_dir,
+        max_width=max_width,
+        jpeg_quality=jpeg_quality,
+        ffmpeg_timeout=ffmpeg_timeout,
+        return_images=return_images,
+        vision_analysis=vision_analysis,
+        vision_prompt=vision_prompt,
+        vision_model=vision_model,
+        proxy=proxy,
     )
 
 
@@ -208,17 +209,17 @@ def extract_video_frames(
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
     """
     return _extract_video_frames(
-        url_or_id,
-        timestamps,
-        output_dir,
-        max_width,
-        jpeg_quality,
-        ffmpeg_timeout,
-        return_images,
-        vision_analysis,
-        vision_prompt,
-        vision_model,
-        proxy,
+        url_or_id=url_or_id,
+        timestamps=timestamps,
+        output_dir=output_dir,
+        max_width=max_width,
+        jpeg_quality=jpeg_quality,
+        ffmpeg_timeout=ffmpeg_timeout,
+        return_images=return_images,
+        vision_analysis=vision_analysis,
+        vision_prompt=vision_prompt,
+        vision_model=vision_model,
+        proxy=proxy,
     )
 
 
@@ -255,20 +256,21 @@ def extract_frames_every(
         vision_analysis: True = return text descriptions from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
     """
     return _extract_frames_every(
-        url_or_id,
-        interval_sec,
-        max_frames,
-        output_dir,
-        max_width,
-        jpeg_quality,
-        ffmpeg_timeout,
-        return_images,
-        vision_analysis,
-        vision_prompt,
-        vision_model,
-        proxy,
+        url_or_id=url_or_id,
+        interval_sec=interval_sec,
+        max_frames=max_frames,
+        output_dir=output_dir,
+        max_width=max_width,
+        jpeg_quality=jpeg_quality,
+        ffmpeg_timeout=ffmpeg_timeout,
+        return_images=return_images,
+        vision_analysis=vision_analysis,
+        vision_prompt=vision_prompt,
+        vision_model=vision_model,
+        proxy=proxy,
     )
 
 
