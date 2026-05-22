@@ -4,6 +4,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from youtube_tools_mcp.utils.proxy import get_proxy_url
+
 
 class DownloadError(Exception):
     """Base exception for download operations."""
@@ -53,6 +55,9 @@ def get_stream_url(video_id: str) -> tuple[str, float]:
         "no_warnings": True,
         "format": "18",
     }
+    proxy = get_proxy_url()
+    if proxy:
+        ydl_opts["proxy"] = proxy
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -80,6 +85,9 @@ def get_video_duration(video_id: str) -> float:
         "quiet": True,
         "no_warnings": True,
     }
+    proxy = get_proxy_url()
+    if proxy:
+        ydl_opts["proxy"] = proxy
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -231,6 +239,9 @@ def download_video(
         "no_warnings": True,
         "merge_output_format": "mp4",
     }
+    proxy = get_proxy_url()
+    if proxy:
+        ydl_opts["proxy"] = proxy
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -295,6 +306,9 @@ def download_audio(
             }
         ],
     }
+    proxy = get_proxy_url()
+    if proxy:
+        ydl_opts["proxy"] = proxy
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

@@ -11,6 +11,7 @@ from youtube_transcript_api._errors import (
     VideoUnplayable,
 )
 
+from youtube_tools_mcp.utils.proxy import get_proxy_url
 from youtube_tools_mcp.utils.text import format_timestamp
 
 
@@ -56,6 +57,7 @@ class TranscriptFetcher:
 
     def __init__(self) -> None:
         self._api = YouTubeTranscriptApi()
+        self._proxy = get_proxy_url()
 
     def fetch(self, video_id: str, languages: tuple[str, ...] = ("en",)) -> str:
         """Fetch transcript and format as timestamped text.
@@ -63,7 +65,10 @@ class TranscriptFetcher:
         Returns a string with lines like "[MM:SS] transcript text".
         """
         try:
-            transcript = self._api.fetch(video_id, languages=list(languages))
+            kwargs: dict[str, object] = {"languages": list(languages)}
+            if self._proxy is not None:
+                kwargs["proxies"] = {"http": self._proxy, "https": self._proxy}
+            transcript = self._api.fetch(video_id, **kwargs)
         except (TranscriptsDisabled, NoTranscriptFound, InvalidVideoId, VideoUnplayable) as exc:
             raise _map_exception(exc) from exc
         except CouldNotRetrieveTranscript as exc:

@@ -213,11 +213,40 @@ When installed via `uvx` from an MCP client, the server may run outside your pro
 | Variable | Required | Description |
 |---|---|---|
 | `YOUTUBE_API_KEY` | No | Enables YouTube Data API features (metadata, search). Core tools work without it. |
+| `HTTPS_PROXY` / `HTTP_PROXY` | No | HTTP/HTTPS proxy for all outgoing requests (transcripts, metadata, downloads). Checked in order: `HTTPS_PROXY`, `https_proxy`, `HTTP_PROXY`, `http_proxy`. |
 | `YOUTUBE_TOOLS_VISION_BASE_URL` | For vision analysis | OpenAI-compatible base URL. Falls back to `OPENAI_BASE_URL`, then `ANTHROPIC_BASE_URL` + `/v1`. |
 | `YOUTUBE_TOOLS_VISION_API_KEY` | For vision analysis | API token. Falls back to `OPENAI_API_KEY`. |
 | `YOUTUBE_TOOLS_VISION_MODEL` | For vision analysis | Vision-capable model. Falls back to `OPENAI_VISION_MODEL`, `ANTHROPIC_TOOL_USE_MODEL`, then `ANTHROPIC_MODEL`. |
 | `YOUTUBE_TOOLS_VISION_MAX_TOKENS` | No | Vision completion token budget. Defaults to `1024`; values are clamped from `64` to `4096`. |
 | `YOUTUBE_TOOLS_VISION_TIMEOUT` | No | Vision request timeout in seconds. Defaults to `60`. |
+
+### Proxy support
+
+All network tools support an optional HTTP/HTTPS proxy via standard environment variables. When a proxy is set, it is applied to:
+
+- `youtube-transcript-api` transcript requests
+- YouTube Data API calls via `urllib`
+- `yt-dlp` video/audio downloads and metadata fetches
+
+Add the proxy to your MCP client `env` block:
+
+```json
+{
+  "mcpServers": {
+    "youtube-tools": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/NewYaroslav/youtube-tools-mcp",
+        "youtube-tools-mcp"
+      ],
+      "env": {
+        "HTTPS_PROXY": "http://proxy.example.com:8080"
+      }
+    }
+  }
+}
+```
 
 ### If you installed the MCP server without tokens
 

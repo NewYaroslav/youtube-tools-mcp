@@ -6,8 +6,9 @@ import re
 from dataclasses import asdict, dataclass, field
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import ProxyHandler, Request, build_opener, urlopen
 
+from youtube_tools_mcp.utils.proxy import get_proxy_url
 from youtube_tools_mcp.utils.url import normalize_url
 
 
@@ -144,9 +145,16 @@ def _youtube_api_get(path: str, params: dict[str, str]) -> dict[str, object]:
     query = urlencode(params)
     request = Request(f"https://www.googleapis.com/youtube/v3/{path}?{query}")
 
+    proxy_url = get_proxy_url()
+    opener = build_opener(ProxyHandler({"http": proxy_url, "https": proxy_url})) if proxy_url else None
+
     try:
-        with urlopen(request, timeout=20) as response:
-            raw = response.read().decode("utf-8")
+        if opener is not None:
+            with opener.open(request, timeout=20) as response:
+                raw = response.read().decode("utf-8")
+        else:
+            with urlopen(request, timeout=20) as response:
+                raw = response.read().decode("utf-8")
     except HTTPError as exc:
         raise MetadataFetchError(f"YouTube Data API HTTP error {exc.code}: {exc.reason}") from exc
     except URLError as exc:
