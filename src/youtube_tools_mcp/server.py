@@ -29,7 +29,10 @@ mcp = FastMCP(
     "youtube-tools-mcp",
     instructions=(
         "MCP server for YouTube transcript extraction, metadata, text cleanup, "
-        "frame extraction, and video/audio download."
+        "frame extraction, and video/audio download. "
+        "If YouTube blocks a request with a bot-check, captcha, sign-in, "
+        "or anti-abuse message, retry the same tool call with the proxy parameter. "
+        "Example proxy format: http://user:pass@host:port."
     ),
 )
 
@@ -48,7 +51,9 @@ def get_youtube_transcript(
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         languages: Preferred language codes in priority order. Defaults to ["ru", "en"].
-        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
+        proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
+            with bot-check, captcha, sign-in, or anti-abuse messages.
+            Example: http://user:pass@host:port.
     """
     return _get_youtube_transcript(url_or_id, languages, proxy)
 
@@ -67,7 +72,9 @@ def get_youtube_video_metadata(
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         include_channel_description: Try to include channel description when available.
-        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
+        proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
+            with bot-check, captcha, sign-in, or anti-abuse messages.
+            Example: http://user:pass@host:port.
     """
     return _get_youtube_video_metadata(url_or_id, include_channel_description, proxy)
 
@@ -87,7 +94,9 @@ def get_youtube_video_context(
         url_or_id: YouTube video URL or 11-character video ID.
         languages: Preferred transcript language codes. Defaults to ["ru", "en"].
         include_channel_description: Try to include channel description when available.
-        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
+        proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
+            with bot-check, captcha, sign-in, or anti-abuse messages.
+            Example: http://user:pass@host:port.
     """
     return _get_youtube_video_context(
         url_or_id,
@@ -158,7 +167,9 @@ def extract_video_frame(
         vision_analysis: True = return text description from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
-        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
+        proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
+            with bot-check, captcha, sign-in, or anti-abuse messages.
+            Example: http://user:pass@host:port.
     """
     return _extract_video_frame(
         url_or_id=url_or_id,
@@ -206,7 +217,9 @@ def extract_video_frames(
         vision_analysis: True = return text descriptions from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
-        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
+        proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
+            with bot-check, captcha, sign-in, or anti-abuse messages.
+            Example: http://user:pass@host:port.
     """
     return _extract_video_frames(
         url_or_id=url_or_id,
@@ -256,7 +269,9 @@ def extract_frames_every(
         vision_analysis: True = return text descriptions from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
-        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
+        proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
+            with bot-check, captcha, sign-in, or anti-abuse messages.
+            Example: http://user:pass@host:port.
     """
     return _extract_frames_every(
         url_or_id=url_or_id,
@@ -320,7 +335,9 @@ def download_video(
         url_or_id: YouTube video URL or 11-character video ID.
         output_dir: Directory to save the video file. Defaults to current directory.
         quality: Quality preset: "best", "720p", "480p", "360p". Defaults to "720p".
-        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
+        proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
+            with bot-check, captcha, sign-in, or anti-abuse messages.
+            Example: http://user:pass@host:port.
     """
     return _download_video_file(url_or_id, output_dir, quality, proxy)
 
@@ -340,7 +357,9 @@ def download_audio(
         url_or_id: YouTube video URL or 11-character video ID.
         output_dir: Directory to save the audio file. Defaults to current directory.
         audio_format: Output audio format: "mp3", "m4a", "opus", "wav". Defaults to "mp3".
-        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
+        proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
+            with bot-check, captcha, sign-in, or anti-abuse messages.
+            Example: http://user:pass@host:port.
     """
     return _download_audio_file(url_or_id, output_dir, audio_format, proxy)
 

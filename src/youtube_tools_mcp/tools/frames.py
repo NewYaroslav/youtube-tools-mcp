@@ -134,7 +134,11 @@ def extract_video_frame(
     try:
         stream_url, _ = get_stream_url(video_id, proxy=proxy)
     except DownloadError as exc:
-        raise _err(f"Failed to get stream URL: {exc}") from exc
+        raise _err(
+            f"Failed to get stream URL: {exc}. "
+            "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+        ) from exc
 
     if vision_analysis:
         tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frame_analysis_"))
@@ -153,7 +157,12 @@ def extract_video_frame(
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc
         except DownloadError as exc:
-            raise _err(f"Frame extraction failed: {exc}") from exc
+            raise _err(
+                f"Frame extraction failed: {exc}. "
+                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                "retry the same tool call with the proxy parameter, "
+                "or with a different proxy if proxy was already used."
+            ) from exc
         finally:
             _cleanup_dir(tmp_dir)
 
@@ -173,7 +182,12 @@ def extract_video_frame(
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc
         except DownloadError as exc:
-            raise _err(f"Frame extraction failed: {exc}") from exc
+            raise _err(
+                f"Frame extraction failed: {exc}. "
+                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                "retry the same tool call with the proxy parameter, "
+                "or with a different proxy if proxy was already used."
+            ) from exc
         finally:
             _cleanup_dir(tmp_dir)
     else:
@@ -192,7 +206,12 @@ def extract_video_frame(
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc
         except DownloadError as exc:
-            raise _err(f"Frame extraction failed: {exc}") from exc
+            raise _err(
+                f"Frame extraction failed: {exc}. "
+                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                "retry the same tool call with the proxy parameter, "
+                "or with a different proxy if proxy was already used."
+            ) from exc
 
 
 def extract_video_frames(
@@ -244,7 +263,11 @@ def extract_video_frames(
     try:
         stream_url, _ = get_stream_url(video_id, proxy=proxy)
     except DownloadError as exc:
-        raise _err(f"Failed to get stream URL: {exc}") from exc
+        raise _err(
+            f"Failed to get stream URL: {exc}. "
+            "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+        ) from exc
 
     if vision_analysis:
         tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frames_analysis_"))
@@ -265,7 +288,12 @@ def extract_video_frames(
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc
         except DownloadError as exc:
-            raise _err(f"Frame extraction failed: {exc}") from exc
+            raise _err(
+                f"Frame extraction failed: {exc}. "
+                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                "retry the same tool call with the proxy parameter, "
+                "or with a different proxy if proxy was already used."
+            ) from exc
         finally:
             _cleanup_dir(tmp_dir)
 
@@ -284,7 +312,12 @@ def extract_video_frames(
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc
         except DownloadError as exc:
-            raise _err(f"Frame extraction failed: {exc}") from exc
+            raise _err(
+                f"Frame extraction failed: {exc}. "
+                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                "retry the same tool call with the proxy parameter, "
+                "or with a different proxy if proxy was already used."
+            ) from exc
         finally:
             _cleanup_dir(tmp_dir)
     else:
@@ -302,7 +335,12 @@ def extract_video_frames(
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc
         except DownloadError as exc:
-            raise _err(f"Frame extraction failed: {exc}") from exc
+            raise _err(
+                f"Frame extraction failed: {exc}. "
+                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                "retry the same tool call with the proxy parameter, "
+                "or with a different proxy if proxy was already used."
+            ) from exc
 
 
 def extract_frames_every(
@@ -358,7 +396,11 @@ def extract_frames_every(
     try:
         stream_url, duration = get_stream_url(video_id, proxy=proxy)
     except DownloadError as exc:
-        raise _err(f"Failed to get video info: {exc}") from exc
+        raise _err(
+            f"Failed to get video info: {exc}. "
+            "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+        ) from exc
 
     count = min(int(duration / interval_sec), max_frames)
     if count == 0:
@@ -385,7 +427,12 @@ def extract_frames_every(
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc
         except DownloadError as exc:
-            raise _err(f"Frame extraction failed: {exc}") from exc
+            raise _err(
+                f"Frame extraction failed: {exc}. "
+                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                "retry the same tool call with the proxy parameter, "
+                "or with a different proxy if proxy was already used."
+            ) from exc
         finally:
             _cleanup_dir(tmp_dir)
 
@@ -404,7 +451,12 @@ def extract_frames_every(
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc
         except DownloadError as exc:
-            raise _err(f"Frame extraction failed: {exc}") from exc
+            raise _err(
+                f"Frame extraction failed: {exc}. "
+                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                "retry the same tool call with the proxy parameter, "
+                "or with a different proxy if proxy was already used."
+            ) from exc
         finally:
             _cleanup_dir(tmp_dir)
     else:
@@ -422,4 +474,9 @@ def extract_frames_every(
         except FFmpegNotFoundError as exc:
             raise _err(str(exc)) from exc
         except DownloadError as exc:
-            raise _err(f"Frame extraction failed: {exc}") from exc
+            raise _err(
+                f"Frame extraction failed: {exc}. "
+                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                "retry the same tool call with the proxy parameter, "
+                "or with a different proxy if proxy was already used."
+            ) from exc

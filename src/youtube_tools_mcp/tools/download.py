@@ -49,9 +49,17 @@ def download_video_file(
     except FFmpegNotFoundError as exc:
         raise _err(str(exc)) from exc
     except VideoDownloadError as exc:
-        raise _err(f"Download failed: {exc}") from exc
+        raise _err(
+            f"Download failed: {exc}. "
+            "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+        ) from exc
     except DownloadError as exc:
-        raise _err(f"Download failed: {exc}") from exc
+        raise _err(
+            f"Download failed: {exc}. "
+            "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+        ) from exc
 
 
 def download_audio_file(
@@ -86,6 +94,14 @@ def download_audio_file(
     except FFmpegNotFoundError as exc:
         raise _err(str(exc)) from exc
     except VideoDownloadError as exc:
-        raise _err(f"Download failed: {exc}") from exc
+        raise _err(
+            f"Download failed: {exc}. "
+            "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+        ) from exc
     except DownloadError as exc:
-        raise _err(f"Download failed: {exc}") from exc
+        raise _err(
+            f"Download failed: {exc}. "
+            "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+        ) from exc

@@ -62,7 +62,11 @@ def get_youtube_video_context(
             proxy=proxy,
         )
     except MetadataError as exc:
-        metadata_error = f"Failed to fetch video metadata: {exc}"
+        metadata_error = (
+            f"Failed to fetch video metadata: {exc}. "
+            "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+        )
 
     fetcher = TranscriptFetcher(proxy_url=proxy)
     try:
@@ -76,7 +80,11 @@ def get_youtube_video_context(
     except VideoUnavailableError as exc:
         raise _err(f"Video unavailable: {exc}") from exc
     except TranscriptError as exc:
-        raise _err(f"Failed to fetch transcript: {exc}") from exc
+        raise _err(
+            f"Failed to fetch transcript: {exc}. "
+            "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+        ) from exc
 
     payload: dict[str, object] = {
         "metadata": asdict(metadata) if metadata is not None else None,

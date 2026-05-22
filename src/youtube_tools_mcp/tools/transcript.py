@@ -53,4 +53,8 @@ def get_youtube_transcript(
     except VideoUnavailableError as exc:
         raise _err(f"Video unavailable: {exc}") from exc
     except TranscriptError as exc:
-        raise _err(f"Failed to fetch transcript: {exc}") from exc
+        raise _err(
+            f"Failed to fetch transcript: {exc}. "
+            "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+        ) from exc
