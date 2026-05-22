@@ -199,7 +199,11 @@ class TestYoutubeApiGet:
 class TestFetchVideoMetadataApi:
     @patch("youtube_tools_mcp.youtube.metadata._youtube_api_get")
     def test_fetch_via_api(self, mock_get: MagicMock) -> None:
-        def _side_effect(path: str, _params: dict[str, str]) -> dict[str, object]:
+        def _side_effect(
+            path: str,
+            _params: dict[str, str],
+            **_kwargs: object,
+        ) -> dict[str, object]:
             if path == "videos":
                 return {
                     "items": [
@@ -260,7 +264,11 @@ class TestFetchVideoMetadataApi:
 
     @patch("youtube_tools_mcp.youtube.metadata._youtube_api_get")
     def test_api_channel_failure_returns_video_with_warning(self, mock_get: MagicMock) -> None:
-        def _side_effect(path: str, _params: dict[str, str]) -> dict[str, object]:
+        def _side_effect(
+            path: str,
+            _params: dict[str, str],
+            **_kwargs: object,
+        ) -> dict[str, object]:
             if path == "videos":
                 return {
                     "items": [

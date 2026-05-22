@@ -98,6 +98,7 @@ def extract_video_frame(
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
     vision_model: str | None = None,
+    proxy: str | None = None,
 ) -> CallToolResult:
     """Extract a single frame from a YouTube video at a specific timestamp.
 
@@ -112,6 +113,10 @@ def extract_video_frame(
         max_width: Maximum frame width in pixels. None = original size.
         jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
         return_images: True = return inline images (vision models), False = file paths.
+        vision_analysis: True = return text description from configured vision model.
+        vision_prompt: Optional prompt for vision analysis.
+        vision_model: Optional model override for vision analysis.
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
 
     Returns:
         MCP result with either TextContent (file path) or ImageContent (inline).
@@ -127,7 +132,7 @@ def extract_video_frame(
         raise _err(str(exc)) from exc
 
     try:
-        stream_url, _ = get_stream_url(video_id)
+        stream_url, _ = get_stream_url(video_id, proxy=proxy)
     except DownloadError as exc:
         raise _err(f"Failed to get stream URL: {exc}") from exc
 
@@ -201,6 +206,7 @@ def extract_video_frames(
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
     vision_model: str | None = None,
+    proxy: str | None = None,
 ) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
@@ -215,6 +221,10 @@ def extract_video_frames(
         max_width: Maximum frame width in pixels. None = original size.
         jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
         return_images: True = return inline images (vision models), False = file paths.
+        vision_analysis: True = return text descriptions from configured vision model.
+        vision_prompt: Optional prompt for vision analysis.
+        vision_model: Optional model override for vision analysis.
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
 
     Returns:
         MCP result with either TextContent (file paths) or ImageContent list (inline).
@@ -232,7 +242,7 @@ def extract_video_frames(
         raise _err(str(exc)) from exc
 
     try:
-        stream_url, _ = get_stream_url(video_id)
+        stream_url, _ = get_stream_url(video_id, proxy=proxy)
     except DownloadError as exc:
         raise _err(f"Failed to get stream URL: {exc}") from exc
 
@@ -307,6 +317,7 @@ def extract_frames_every(
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
     vision_model: str | None = None,
+    proxy: str | None = None,
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
@@ -322,6 +333,10 @@ def extract_frames_every(
         max_width: Maximum frame width in pixels. None = original size.
         jpeg_quality: JPEG quality (2=best, 31=worst). Defaults to 5.
         return_images: True = return inline images (vision models), False = file paths.
+        vision_analysis: True = return text descriptions from configured vision model.
+        vision_prompt: Optional prompt for vision analysis.
+        vision_model: Optional model override for vision analysis.
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
 
     Returns:
         MCP result with either TextContent (file paths) or ImageContent list (inline).
@@ -341,7 +356,7 @@ def extract_frames_every(
         raise _err(str(exc)) from exc
 
     try:
-        stream_url, duration = get_stream_url(video_id)
+        stream_url, duration = get_stream_url(video_id, proxy=proxy)
     except DownloadError as exc:
         raise _err(f"Failed to get video info: {exc}") from exc
 

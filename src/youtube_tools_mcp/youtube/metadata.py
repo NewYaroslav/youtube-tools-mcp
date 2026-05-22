@@ -118,8 +118,16 @@ def _extract_metadata_from_ytdlp_info(
     )
 
 
-def fetch_video_metadata_ytdlp(video_id: str) -> YouTubeVideoMetadata:
-    """Fetch video metadata via yt-dlp without downloading the video."""
+def fetch_video_metadata_ytdlp(
+    video_id: str,
+    proxy: str | None = None,
+) -> YouTubeVideoMetadata:
+    """Fetch video metadata via yt-dlp without downloading the video.
+
+    Args:
+        video_id: YouTube video ID.
+        proxy: Optional proxy URL override.
+    """
     import yt_dlp
 
     ydl_opts = {
@@ -127,9 +135,9 @@ def fetch_video_metadata_ytdlp(video_id: str) -> YouTubeVideoMetadata:
         "no_warnings": True,
         "skip_download": True,
     }
-    proxy = get_proxy_url()
-    if proxy:
-        ydl_opts["proxy"] = proxy
+    resolved = get_proxy_url(proxy)
+    if resolved:
+        ydl_opts["proxy"] = resolved
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -143,12 +151,16 @@ def fetch_video_metadata_ytdlp(video_id: str) -> YouTubeVideoMetadata:
     return _extract_metadata_from_ytdlp_info(video_id, info)
 
 
-def _youtube_api_get(path: str, params: dict[str, str]) -> dict[str, object]:
+def _youtube_api_get(
+    path: str,
+    params: dict[str, str],
+    proxy: str | None = None,
+) -> dict[str, object]:
     """Call YouTube Data API v3 and return parsed JSON."""
     query = urlencode(params)
     request = Request(f"https://www.googleapis.com/youtube/v3/{path}?{query}")
 
-    proxy_url = get_proxy_url()
+    proxy_url = get_proxy_url(proxy)
     opener = build_opener(ProxyHandler({"http": proxy_url, "https": proxy_url})) if proxy_url else None
 
     try:
@@ -188,8 +200,16 @@ def fetch_video_metadata_api(
     video_id: str,
     api_key: str,
     include_channel_description: bool = True,
+    proxy: str | None = None,
 ) -> YouTubeVideoMetadata:
-    """Fetch video and channel metadata via YouTube Data API v3."""
+    """Fetch video and channel metadata via YouTube Data API v3.
+
+    Args:
+        video_id: YouTube video ID.
+        api_key: YouTube Data API key.
+        include_channel_description: Try to include channel description when available.
+        proxy: Optional proxy URL override.
+    """
     video_data = _youtube_api_get(
         "videos",
         {
@@ -197,6 +217,7 @@ def fetch_video_metadata_api(
             "id": video_id,
             "key": api_key,
         },
+        proxy=proxy,
     )
 
     video_item = _first_item(video_data)
@@ -236,6 +257,7 @@ def fetch_video_metadata_api(
                     "id": channel_id,
                     "key": api_key,
                 },
+                proxy=proxy,
             )
         except MetadataError as exc:
             metadata.warnings.append(f"youtube-data-api channel metadata failed: {exc}")
@@ -257,22 +279,28 @@ def fetch_video_metadata_api(
 def fetch_video_metadata(
     video_id: str,
     include_channel_description: bool = True,
+    proxy: str | None = None,
 ) -> YouTubeVideoMetadata:
     """Fetch video metadata.
 
     Uses YouTube Data API when YOUTUBE_API_KEY is configured, because it can
     return channel description. Falls back to yt-dlp, which works without API key.
+
+    Args:
+        video_id: YouTube video ID.
+        include_channel_description: Try to include channel description when available.
+        proxy: Optional proxy URL override.
     """
     api_key = os.environ.get("YOUTUBE_API_KEY")
     if api_key:
         try:
-            return fetch_video_metadata_api(video_id, api_key, include_channel_description)
+            return fetch_video_metadata_api(video_id, api_key, include_channel_description, proxy=proxy)
         except MetadataError as exc:
-            metadata = fetch_video_metadata_ytdlp(video_id)
+            metadata = fetch_video_metadata_ytdlp(video_id, proxy=proxy)
             metadata.warnings.append(f"youtube-data-api failed: {exc}")
             return metadata
 
-    return fetch_video_metadata_ytdlp(video_id)
+    return fetch_video_metadata_ytdlp(video_id, proxy=proxy)
 
 
 def metadata_to_json(metadata: YouTubeVideoMetadata) -> str:

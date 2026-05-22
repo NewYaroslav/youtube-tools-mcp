@@ -40,12 +40,16 @@ def _check_ffmpeg() -> None:
     raise FFmpegNotFoundError(msg)
 
 
-def get_stream_url(video_id: str) -> tuple[str, float]:
+def get_stream_url(video_id: str, proxy: str | None = None) -> tuple[str, float]:
     """Get a direct video stream URL and duration via yt-dlp without downloading.
 
     Uses itag 18 (360p progressive mp4) which ffmpeg can seek efficiently
     without downloading. DASH formats cause ffmpeg timeouts on long videos.
     Returns (stream_url, duration_seconds).
+
+    Args:
+        video_id: YouTube video ID.
+        proxy: Optional proxy URL override.
     """
     import yt_dlp
 
@@ -55,9 +59,9 @@ def get_stream_url(video_id: str) -> tuple[str, float]:
         "no_warnings": True,
         "format": "18",
     }
-    proxy = get_proxy_url()
-    if proxy:
-        ydl_opts["proxy"] = proxy
+    resolved = get_proxy_url(proxy)
+    if resolved:
+        ydl_opts["proxy"] = resolved
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -76,8 +80,13 @@ def get_stream_url(video_id: str) -> tuple[str, float]:
     return direct_url, float(duration)
 
 
-def get_video_duration(video_id: str) -> float:
-    """Get video duration in seconds via yt-dlp without downloading."""
+def get_video_duration(video_id: str, proxy: str | None = None) -> float:
+    """Get video duration in seconds via yt-dlp without downloading.
+
+    Args:
+        video_id: YouTube video ID.
+        proxy: Optional proxy URL override.
+    """
     import yt_dlp
 
     url = f"https://www.youtube.com/watch?v={video_id}"
@@ -85,9 +94,9 @@ def get_video_duration(video_id: str) -> float:
         "quiet": True,
         "no_warnings": True,
     }
-    proxy = get_proxy_url()
-    if proxy:
-        ydl_opts["proxy"] = proxy
+    resolved = get_proxy_url(proxy)
+    if resolved:
+        ydl_opts["proxy"] = resolved
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -211,6 +220,7 @@ def download_video(
     video_id: str,
     output_dir: Path,
     quality: str = "720p",
+    proxy: str | None = None,
 ) -> Path:
     """Download a YouTube video using yt-dlp.
 
@@ -218,6 +228,7 @@ def download_video(
         video_id: YouTube video ID.
         output_dir: Directory to save the video file.
         quality: Quality preset: "best", "720p", "480p", "360p".
+        proxy: Optional proxy URL override.
 
     Returns:
         Path to the downloaded video file.
@@ -239,9 +250,9 @@ def download_video(
         "no_warnings": True,
         "merge_output_format": "mp4",
     }
-    proxy = get_proxy_url()
-    if proxy:
-        ydl_opts["proxy"] = proxy
+    resolved = get_proxy_url(proxy)
+    if resolved:
+        ydl_opts["proxy"] = resolved
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -272,6 +283,7 @@ def download_audio(
     video_id: str,
     output_dir: Path,
     audio_format: str = "mp3",
+    proxy: str | None = None,
 ) -> Path:
     """Download audio only from a YouTube video using yt-dlp + ffmpeg.
 
@@ -279,6 +291,7 @@ def download_audio(
         video_id: YouTube video ID.
         output_dir: Directory to save the audio file.
         audio_format: Output audio format: "mp3", "m4a", "opus", "wav".
+        proxy: Optional proxy URL override.
 
     Returns:
         Path to the downloaded audio file.
@@ -306,9 +319,9 @@ def download_audio(
             }
         ],
     }
-    proxy = get_proxy_url()
-    if proxy:
-        ydl_opts["proxy"] = proxy
+    resolved = get_proxy_url(proxy)
+    if resolved:
+        ydl_opts["proxy"] = resolved
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

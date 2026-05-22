@@ -6,6 +6,10 @@ from youtube_tools_mcp.utils.proxy import get_proxy_url
 
 
 class TestGetProxyUrl:
+    def test_explicit_proxy_takes_highest_priority(self) -> None:
+        with patch.dict("os.environ", {"HTTPS_PROXY": "http://env-proxy:8080"}, clear=True):
+            assert get_proxy_url("http://arg-proxy:9090") == "http://arg-proxy:9090"
+
     def test_https_proxy_uppercase(self) -> None:
         with patch.dict("os.environ", {"HTTPS_PROXY": "http://proxy:8080"}, clear=True):
             assert get_proxy_url() == "http://proxy:8080"
