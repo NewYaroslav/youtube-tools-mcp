@@ -38,6 +38,10 @@ def get_youtube_video_metadata(
             proxy=proxy,
         )
     except MetadataError as exc:
-        raise _err(f"Failed to fetch video metadata: {exc}") from exc
+        raise _err(
+            f"Failed to fetch video metadata: {exc}. "
+            "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+        ) from exc
 
     return metadata_to_json(metadata)
