@@ -56,10 +56,10 @@ def _map_exception(exc: Exception) -> TranscriptError:
 class TranscriptFetcher:
     """Fetches YouTube transcripts using youtube-transcript-api."""
 
-    def __init__(self) -> None:
-        proxy_url = get_proxy_url()
-        if proxy_url is not None:
-            proxy_cfg = GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
+    def __init__(self, proxy_url: str | None = None) -> None:
+        resolved = get_proxy_url(proxy_url)
+        if resolved is not None:
+            proxy_cfg = GenericProxyConfig(http_url=resolved, https_url=resolved)
             self._api = YouTubeTranscriptApi(proxy_config=proxy_cfg)
         else:
             self._api = YouTubeTranscriptApi()

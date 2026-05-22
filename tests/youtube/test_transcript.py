@@ -150,13 +150,7 @@ class TestTranscriptFetcherProxy:
 
     @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
     def test_init_without_proxy_no_proxy_config(self, mock_api_cls: MagicMock) -> None:
-        with (
-            patch.dict("os.environ", {}, clear=True),
-            patch(
-                "youtube_tools_mcp.utils.proxy._read_proxy_config",
-                return_value=None,
-            ),
-        ):
+        with patch.dict("os.environ", {}, clear=True):
             TranscriptFetcher()
 
         call_kwargs = mock_api_cls.call_args[1]

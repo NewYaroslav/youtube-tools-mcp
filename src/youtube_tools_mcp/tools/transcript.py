@@ -21,12 +21,14 @@ def _err(msg: str) -> McpError:
 def get_youtube_transcript(
     url_or_id: str,
     languages: list[str] | None = None,
+    proxy: str | None = None,
 ) -> str:
     """Extract transcript/subtitles from a YouTube video.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         languages: Preferred language codes in priority order. Defaults to ["ru", "en"].
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
 
     Returns:
         Timestamped transcript text with format [MM:SS] text per line.
@@ -39,7 +41,7 @@ def get_youtube_transcript(
     except ValueError as exc:
         raise _err(str(exc)) from exc
 
-    fetcher = TranscriptFetcher()
+    fetcher = TranscriptFetcher(proxy_url=proxy)
     try:
         return fetcher.fetch(video_id, languages=tuple(languages))
     except TranscriptsDisabledError as exc:

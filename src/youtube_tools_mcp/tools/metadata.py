@@ -14,12 +14,14 @@ def _err(msg: str) -> McpError:
 def get_youtube_video_metadata(
     url_or_id: str,
     include_channel_description: bool = True,
+    proxy: str | None = None,
 ) -> str:
     """Fetch YouTube video metadata and channel information.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         include_channel_description: Try to include channel description when available.
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
 
     Returns:
         Pretty JSON with video description, channel URL, and optional channel description.
@@ -33,6 +35,7 @@ def get_youtube_video_metadata(
         metadata = fetch_video_metadata(
             video_id,
             include_channel_description=include_channel_description,
+            proxy=proxy,
         )
     except MetadataError as exc:
         raise _err(f"Failed to fetch video metadata: {exc}") from exc

@@ -35,7 +35,11 @@ mcp = FastMCP(
 
 
 @mcp.tool()
-def get_youtube_transcript(url_or_id: str, languages: list[str] | None = None) -> str:
+def get_youtube_transcript(
+    url_or_id: str,
+    languages: list[str] | None = None,
+    proxy: str | None = None,
+) -> str:
     """Extract transcript/subtitles from a YouTube video.
 
     Provide a YouTube URL or video ID and optional language preference list.
@@ -44,14 +48,16 @@ def get_youtube_transcript(url_or_id: str, languages: list[str] | None = None) -
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         languages: Preferred language codes in priority order. Defaults to ["ru", "en"].
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
     """
-    return _get_youtube_transcript(url_or_id, languages)
+    return _get_youtube_transcript(url_or_id, languages, proxy)
 
 
 @mcp.tool()
 def get_youtube_video_metadata(
     url_or_id: str,
     include_channel_description: bool = True,
+    proxy: str | None = None,
 ) -> str:
     """Fetch YouTube video metadata and channel information.
 
@@ -61,8 +67,9 @@ def get_youtube_video_metadata(
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         include_channel_description: Try to include channel description when available.
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
     """
-    return _get_youtube_video_metadata(url_or_id, include_channel_description)
+    return _get_youtube_video_metadata(url_or_id, include_channel_description, proxy)
 
 
 @mcp.tool()
@@ -70,6 +77,7 @@ def get_youtube_video_context(
     url_or_id: str,
     languages: list[str] | None = None,
     include_channel_description: bool = True,
+    proxy: str | None = None,
 ) -> str:
     """Fetch transcript plus video and channel metadata.
 
@@ -79,11 +87,13 @@ def get_youtube_video_context(
         url_or_id: YouTube video URL or 11-character video ID.
         languages: Preferred transcript language codes. Defaults to ["ru", "en"].
         include_channel_description: Try to include channel description when available.
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
     """
     return _get_youtube_video_context(
         url_or_id,
         languages,
         include_channel_description,
+        proxy,
     )
 
 
@@ -129,6 +139,7 @@ def extract_video_frame(
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
     vision_model: str | None = None,
+    proxy: str | None = None,
 ) -> CallToolResult:
     """Extract a single frame from a YouTube video at a specific timestamp.
 
@@ -159,6 +170,7 @@ def extract_video_frame(
         vision_analysis,
         vision_prompt,
         vision_model,
+        proxy,
     )
 
 
@@ -174,6 +186,7 @@ def extract_video_frames(
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
     vision_model: str | None = None,
+    proxy: str | None = None,
 ) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
@@ -192,6 +205,7 @@ def extract_video_frames(
         vision_analysis: True = return text descriptions from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
     """
     return _extract_video_frames(
         url_or_id,
@@ -204,6 +218,7 @@ def extract_video_frames(
         vision_analysis,
         vision_prompt,
         vision_model,
+        proxy,
     )
 
 
@@ -220,6 +235,7 @@ def extract_frames_every(
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
     vision_model: str | None = None,
+    proxy: str | None = None,
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
@@ -252,6 +268,7 @@ def extract_frames_every(
         vision_analysis,
         vision_prompt,
         vision_model,
+        proxy,
     )
 
 
@@ -289,19 +306,30 @@ def analyze_image_file(path: str, prompt: str | None = None, model: str | None =
 
 
 @mcp.tool()
-def download_video(url_or_id: str, output_dir: str = ".", quality: str = "720p") -> str:
+def download_video(
+    url_or_id: str,
+    output_dir: str = ".",
+    quality: str = "720p",
+    proxy: str | None = None,
+) -> str:
     """Download a YouTube video to a local file.
 
     Args:
         url_or_id: YouTube video URL or 11-character video ID.
         output_dir: Directory to save the video file. Defaults to current directory.
         quality: Quality preset: "best", "720p", "480p", "360p". Defaults to "720p".
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
     """
-    return _download_video_file(url_or_id, output_dir, quality)
+    return _download_video_file(url_or_id, output_dir, quality, proxy)
 
 
 @mcp.tool()
-def download_audio(url_or_id: str, output_dir: str = ".", audio_format: str = "mp3") -> str:
+def download_audio(
+    url_or_id: str,
+    output_dir: str = ".",
+    audio_format: str = "mp3",
+    proxy: str | None = None,
+) -> str:
     """Download audio only from a YouTube video to a local file.
 
     Requires ffmpeg to be installed on the system.
@@ -310,8 +338,9 @@ def download_audio(url_or_id: str, output_dir: str = ".", audio_format: str = "m
         url_or_id: YouTube video URL or 11-character video ID.
         output_dir: Directory to save the audio file. Defaults to current directory.
         audio_format: Output audio format: "mp3", "m4a", "opus", "wav". Defaults to "mp3".
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
     """
-    return _download_audio_file(url_or_id, output_dir, audio_format)
+    return _download_audio_file(url_or_id, output_dir, audio_format, proxy)
 
 
 def main() -> None:

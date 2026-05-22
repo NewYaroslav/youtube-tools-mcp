@@ -102,4 +102,4 @@ class TestDownloadAudioFile:
             patch("youtube_tools_mcp.tools.download.download_audio", return_value=fake_path) as mock_dl,
         ):
             download_audio_file("dQw4w9WgXcQ", str(tmp_path))
-            mock_dl.assert_called_once_with("dQw4w9WgXcQ", tmp_path.resolve(), "mp3")
+            mock_dl.assert_called_once_with("dQw4w9WgXcQ", tmp_path.resolve(), "mp3", proxy=None)

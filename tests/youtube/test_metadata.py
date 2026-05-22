@@ -152,13 +152,7 @@ class TestFetchVideoMetadataYtdlp:
         mock_ydl_cls.return_value.__exit__ = MagicMock(return_value=False)
         mock_ydl.extract_info.return_value = {"title": "No Proxy Test", "duration": 30}
 
-        with (
-            patch.dict("os.environ", {}, clear=True),
-            patch(
-                "youtube_tools_mcp.utils.proxy._read_proxy_config",
-                return_value=None,
-            ),
-        ):
+        with patch.dict("os.environ", {}, clear=True):
             fetch_video_metadata_ytdlp(SAMPLE_VIDEO_ID)
 
         opts = mock_ydl_cls.call_args[0][0]
@@ -195,13 +189,7 @@ class TestYoutubeApiGet:
 
         from youtube_tools_mcp.youtube.metadata import _youtube_api_get
 
-        with (
-            patch.dict("os.environ", {}, clear=True),
-            patch(
-                "youtube_tools_mcp.utils.proxy._read_proxy_config",
-                return_value=None,
-            ),
-        ):
+        with patch.dict("os.environ", {}, clear=True):
             _youtube_api_get("videos", {"id": SAMPLE_VIDEO_ID, "key": "test"})
 
         mock_build_opener.assert_not_called()
@@ -211,7 +199,11 @@ class TestYoutubeApiGet:
 class TestFetchVideoMetadataApi:
     @patch("youtube_tools_mcp.youtube.metadata._youtube_api_get")
     def test_fetch_via_api(self, mock_get: MagicMock) -> None:
-        def _side_effect(path: str, _params: dict[str, str]) -> dict[str, object]:
+        def _side_effect(
+            path: str,
+            _params: dict[str, str],
+            **_kwargs: object,
+        ) -> dict[str, object]:
             if path == "videos":
                 return {
                     "items": [
@@ -272,7 +264,11 @@ class TestFetchVideoMetadataApi:
 
     @patch("youtube_tools_mcp.youtube.metadata._youtube_api_get")
     def test_api_channel_failure_returns_video_with_warning(self, mock_get: MagicMock) -> None:
-        def _side_effect(path: str, _params: dict[str, str]) -> dict[str, object]:
+        def _side_effect(
+            path: str,
+            _params: dict[str, str],
+            **_kwargs: object,
+        ) -> dict[str, object]:
             if path == "videos":
                 return {
                     "items": [

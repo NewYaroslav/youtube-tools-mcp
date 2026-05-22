@@ -30,6 +30,7 @@ def get_youtube_video_context(
     url_or_id: str,
     languages: list[str] | None = None,
     include_channel_description: bool = True,
+    proxy: str | None = None,
 ) -> str:
     """Fetch transcript plus video and channel metadata.
 
@@ -37,6 +38,7 @@ def get_youtube_video_context(
         url_or_id: YouTube video URL or 11-character video ID.
         languages: Preferred transcript language codes. Defaults to ["ru", "en"].
         include_channel_description: Try to include channel description when available.
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
 
     Returns:
         Pretty JSON with metadata and timestamped transcript text.
@@ -57,11 +59,12 @@ def get_youtube_video_context(
         metadata = fetch_video_metadata(
             video_id,
             include_channel_description=include_channel_description,
+            proxy=proxy,
         )
     except MetadataError as exc:
         metadata_error = f"Failed to fetch video metadata: {exc}"
 
-    fetcher = TranscriptFetcher()
+    fetcher = TranscriptFetcher(proxy_url=proxy)
     try:
         transcript = fetcher.fetch(video_id, languages=tuple(languages))
     except TranscriptsDisabledError as exc:

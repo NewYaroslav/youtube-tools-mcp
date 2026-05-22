@@ -23,6 +23,7 @@ def download_video_file(
     url_or_id: str,
     output_dir: str = ".",
     quality: str = "720p",
+    proxy: str | None = None,
 ) -> str:
     """Download a YouTube video to a local file.
 
@@ -30,6 +31,7 @@ def download_video_file(
         url_or_id: YouTube video URL or 11-character video ID.
         output_dir: Directory to save the video file. Defaults to current directory.
         quality: Quality preset: "best", "720p", "480p", "360p". Defaults to "720p".
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
 
     Returns:
         Absolute path to the downloaded video file.
@@ -42,7 +44,7 @@ def download_video_file(
     out = Path(output_dir).resolve()
 
     try:
-        path = download_video(video_id, out, quality)
+        path = download_video(video_id, out, quality, proxy=proxy)
         return str(path)
     except FFmpegNotFoundError as exc:
         raise _err(str(exc)) from exc
@@ -56,6 +58,7 @@ def download_audio_file(
     url_or_id: str,
     output_dir: str = ".",
     audio_format: str = "mp3",
+    proxy: str | None = None,
 ) -> str:
     """Download audio only from a YouTube video to a local file.
 
@@ -65,6 +68,7 @@ def download_audio_file(
         url_or_id: YouTube video URL or 11-character video ID.
         output_dir: Directory to save the audio file. Defaults to current directory.
         audio_format: Output audio format: "mp3", "m4a", "opus", "wav". Defaults to "mp3".
+        proxy: Optional proxy URL (e.g. http://user:pass@host:port).
 
     Returns:
         Absolute path to the downloaded audio file.
@@ -77,7 +81,7 @@ def download_audio_file(
     out = Path(output_dir).resolve()
 
     try:
-        path = download_audio(video_id, out, audio_format)
+        path = download_audio(video_id, out, audio_format, proxy=proxy)
         return str(path)
     except FFmpegNotFoundError as exc:
         raise _err(str(exc)) from exc
