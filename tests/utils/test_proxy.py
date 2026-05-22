@@ -48,5 +48,41 @@ class TestGetProxyUrl:
             assert get_proxy_url() == "http://upper-https:8080"
 
     def test_none_when_no_proxy_set(self) -> None:
-        with patch.dict("os.environ", {}, clear=True):
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(
+                "youtube_tools_mcp.utils.proxy._read_proxy_config",
+                return_value=None,
+            ),
+        ):
+            assert get_proxy_url() is None
+
+    def test_env_takes_priority_over_config_file(self) -> None:
+        with (
+            patch.dict("os.environ", {"HTTPS_PROXY": "http://env-proxy:8080"}, clear=True),
+            patch(
+                "youtube_tools_mcp.utils.proxy._read_proxy_config",
+                return_value="http://config-proxy:8080",
+            ),
+        ):
+            assert get_proxy_url() == "http://env-proxy:8080"
+
+    def test_fallback_to_config_file_when_no_env(self) -> None:
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(
+                "youtube_tools_mcp.utils.proxy._read_proxy_config",
+                return_value="http://config-proxy:8080",
+            ),
+        ):
+            assert get_proxy_url() == "http://config-proxy:8080"
+
+    def test_none_when_config_file_returns_none(self) -> None:
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(
+                "youtube_tools_mcp.utils.proxy._read_proxy_config",
+                return_value=None,
+            ),
+        ):
             assert get_proxy_url() is None

@@ -152,7 +152,13 @@ class TestFetchVideoMetadataYtdlp:
         mock_ydl_cls.return_value.__exit__ = MagicMock(return_value=False)
         mock_ydl.extract_info.return_value = {"title": "No Proxy Test", "duration": 30}
 
-        with patch.dict("os.environ", {}, clear=True):
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(
+                "youtube_tools_mcp.utils.proxy._read_proxy_config",
+                return_value=None,
+            ),
+        ):
             fetch_video_metadata_ytdlp(SAMPLE_VIDEO_ID)
 
         opts = mock_ydl_cls.call_args[0][0]
@@ -189,7 +195,13 @@ class TestYoutubeApiGet:
 
         from youtube_tools_mcp.youtube.metadata import _youtube_api_get
 
-        with patch.dict("os.environ", {}, clear=True):
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(
+                "youtube_tools_mcp.utils.proxy._read_proxy_config",
+                return_value=None,
+            ),
+        ):
             _youtube_api_get("videos", {"id": SAMPLE_VIDEO_ID, "key": "test"})
 
         mock_build_opener.assert_not_called()
