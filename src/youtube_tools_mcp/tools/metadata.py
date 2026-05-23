@@ -15,6 +15,7 @@ def get_youtube_video_metadata(
     url_or_id: str,
     include_channel_description: bool = True,
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
 ) -> str:
     """Fetch YouTube video metadata and channel information.
 
@@ -36,12 +37,14 @@ def get_youtube_video_metadata(
             video_id,
             include_channel_description=include_channel_description,
             proxy=proxy,
+            cookies_from_browser=cookies_from_browser,
         )
     except MetadataError as exc:
         raise _err(
             f"Failed to fetch video metadata: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
+            "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
         ) from exc
 
     return metadata_to_json(metadata)

@@ -121,6 +121,7 @@ def _extract_metadata_from_ytdlp_info(
 def fetch_video_metadata_ytdlp(
     video_id: str,
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
 ) -> YouTubeVideoMetadata:
     """Fetch video metadata via yt-dlp without downloading the video.
 
@@ -138,6 +139,8 @@ def fetch_video_metadata_ytdlp(
     resolved = get_proxy_url(proxy)
     if resolved:
         ydl_opts["proxy"] = resolved
+    if cookies_from_browser:
+        ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -280,6 +283,7 @@ def fetch_video_metadata(
     video_id: str,
     include_channel_description: bool = True,
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
 ) -> YouTubeVideoMetadata:
     """Fetch video metadata.
 
@@ -296,11 +300,11 @@ def fetch_video_metadata(
         try:
             return fetch_video_metadata_api(video_id, api_key, include_channel_description, proxy=proxy)
         except MetadataError as exc:
-            metadata = fetch_video_metadata_ytdlp(video_id, proxy=proxy)
+            metadata = fetch_video_metadata_ytdlp(video_id, proxy=proxy, cookies_from_browser=cookies_from_browser)
             metadata.warnings.append(f"youtube-data-api failed: {exc}")
             return metadata
 
-    return fetch_video_metadata_ytdlp(video_id, proxy=proxy)
+    return fetch_video_metadata_ytdlp(video_id, proxy=proxy, cookies_from_browser=cookies_from_browser)
 
 
 def metadata_to_json(metadata: YouTubeVideoMetadata) -> str:

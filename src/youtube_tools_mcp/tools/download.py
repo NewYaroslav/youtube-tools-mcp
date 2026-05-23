@@ -24,6 +24,7 @@ def download_video_file(
     output_dir: str = ".",
     quality: str = "720p",
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
 ) -> str:
     """Download a YouTube video to a local file.
 
@@ -44,7 +45,7 @@ def download_video_file(
     out = Path(output_dir).resolve()
 
     try:
-        path = download_video(video_id, out, quality, proxy=proxy)
+        path = download_video(video_id, out, quality, proxy=proxy, cookies_from_browser=cookies_from_browser)
         return str(path)
     except FFmpegNotFoundError as exc:
         raise _err(str(exc)) from exc
@@ -52,13 +53,15 @@ def download_video_file(
         raise _err(
             f"Download failed: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
+            "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
         ) from exc
     except DownloadError as exc:
         raise _err(
             f"Download failed: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
+            "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
         ) from exc
 
 
@@ -67,6 +70,7 @@ def download_audio_file(
     output_dir: str = ".",
     audio_format: str = "mp3",
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
 ) -> str:
     """Download audio only from a YouTube video to a local file.
 
@@ -89,7 +93,7 @@ def download_audio_file(
     out = Path(output_dir).resolve()
 
     try:
-        path = download_audio(video_id, out, audio_format, proxy=proxy)
+        path = download_audio(video_id, out, audio_format, proxy=proxy, cookies_from_browser=cookies_from_browser)
         return str(path)
     except FFmpegNotFoundError as exc:
         raise _err(str(exc)) from exc
@@ -97,11 +101,13 @@ def download_audio_file(
         raise _err(
             f"Download failed: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
+            "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
         ) from exc
     except DownloadError as exc:
         raise _err(
             f"Download failed: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
+            "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
         ) from exc

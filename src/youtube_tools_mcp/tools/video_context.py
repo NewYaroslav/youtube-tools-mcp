@@ -31,6 +31,7 @@ def get_youtube_video_context(
     languages: list[str] | None = None,
     include_channel_description: bool = True,
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
 ) -> str:
     """Fetch transcript plus video and channel metadata.
 
@@ -60,12 +61,14 @@ def get_youtube_video_context(
             video_id,
             include_channel_description=include_channel_description,
             proxy=proxy,
+            cookies_from_browser=cookies_from_browser,
         )
     except MetadataError as exc:
         metadata_error = (
             f"Failed to fetch video metadata: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
+            "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
         )
 
     fetcher = TranscriptFetcher(proxy_url=proxy)

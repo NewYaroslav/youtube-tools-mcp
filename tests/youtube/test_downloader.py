@@ -27,30 +27,39 @@ def _mock_ytdl_context(mock_ytdl_cls: MagicMock, info: dict) -> None:
 
 class TestGetStreamUrl:
     @patch("yt_dlp.YoutubeDL")
-    def test_returns_direct_url_and_duration(self, mock_ytdl_cls: MagicMock) -> None:
-        _mock_ytdl_context(mock_ytdl_cls, {"url": "https://stream.url/video.mp4", "duration": 210.5})
+    def test_returns_direct_url_and_duration(self, mock_ydl_cls: MagicMock) -> None:
+        _mock_ytdl_context(mock_ydl_cls, {"url": "https://stream.url/video.mp4", "duration": 210.5})
 
         stream_url, duration = get_stream_url("dQw4w9WgXcQ")
         assert stream_url == "https://stream.url/video.mp4"
         assert duration == 210.5
 
     @patch("yt_dlp.YoutubeDL")
-    def test_raises_stream_url_error_when_no_url(self, mock_ytdl_cls: MagicMock) -> None:
-        _mock_ytdl_context(mock_ytdl_cls, {"url": None, "duration": 120.0})
+    def test_uses_cookies_from_browser_when_set(self, mock_ydl_cls: MagicMock) -> None:
+        _mock_ytdl_context(mock_ydl_cls, {"url": "https://stream.url/video.mp4", "duration": 210.5})
+
+        get_stream_url("dQw4w9WgXcQ", cookies_from_browser="chrome")
+
+        opts = mock_ydl_cls.call_args[0][0]
+        assert opts["cookiesfrombrowser"] == ["chrome"]
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_raises_stream_url_error_when_no_url(self, mock_ydl_cls: MagicMock) -> None:
+        _mock_ytdl_context(mock_ydl_cls, {"url": None, "duration": 120.0})
 
         with pytest.raises(StreamUrlError, match="No direct stream URL"):
             get_stream_url("dQw4w9WgXcQ")
 
     @patch("yt_dlp.YoutubeDL")
-    def test_raises_stream_url_error_when_no_info(self, mock_ytdl_cls: MagicMock) -> None:
-        _mock_ytdl_context(mock_ytdl_cls, None)
+    def test_raises_stream_url_error_when_no_info(self, mock_ydl_cls: MagicMock) -> None:
+        _mock_ytdl_context(mock_ydl_cls, None)
 
         with pytest.raises(StreamUrlError, match="no info"):
             get_stream_url("dQw4w9WgXcQ")
 
     @patch("yt_dlp.YoutubeDL")
-    def test_raises_stream_url_error_when_no_duration(self, mock_ytdl_cls: MagicMock) -> None:
-        _mock_ytdl_context(mock_ytdl_cls, {"url": "https://stream.url/video.mp4", "duration": None})
+    def test_raises_stream_url_error_when_no_duration(self, mock_ydl_cls: MagicMock) -> None:
+        _mock_ytdl_context(mock_ydl_cls, {"url": "https://stream.url/video.mp4", "duration": None})
 
         with pytest.raises(StreamUrlError, match="Could not determine duration"):
             get_stream_url("dQw4w9WgXcQ")
@@ -58,22 +67,31 @@ class TestGetStreamUrl:
 
 class TestGetVideoDuration:
     @patch("yt_dlp.YoutubeDL")
-    def test_returns_duration(self, mock_ytdl_cls: MagicMock) -> None:
-        _mock_ytdl_context(mock_ytdl_cls, {"duration": 210.5})
+    def test_returns_duration(self, mock_ydl_cls: MagicMock) -> None:
+        _mock_ytdl_context(mock_ydl_cls, {"duration": 210.5})
 
         result = get_video_duration("dQw4w9WgXcQ")
         assert result == 210.5
 
     @patch("yt_dlp.YoutubeDL")
-    def test_raises_when_no_info(self, mock_ytdl_cls: MagicMock) -> None:
-        _mock_ytdl_context(mock_ytdl_cls, None)
+    def test_uses_cookies_from_browser_when_set(self, mock_ydl_cls: MagicMock) -> None:
+        _mock_ytdl_context(mock_ydl_cls, {"duration": 210.5})
+
+        get_video_duration("dQw4w9WgXcQ", cookies_from_browser="firefox")
+
+        opts = mock_ydl_cls.call_args[0][0]
+        assert opts["cookiesfrombrowser"] == ["firefox"]
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_raises_when_no_info(self, mock_ydl_cls: MagicMock) -> None:
+        _mock_ytdl_context(mock_ydl_cls, None)
 
         with pytest.raises(StreamUrlError):
             get_video_duration("dQw4w9WgXcQ")
 
     @patch("yt_dlp.YoutubeDL")
-    def test_raises_when_no_duration(self, mock_ytdl_cls: MagicMock) -> None:
-        _mock_ytdl_context(mock_ytdl_cls, {"duration": None})
+    def test_raises_when_no_duration(self, mock_ydl_cls: MagicMock) -> None:
+        _mock_ytdl_context(mock_ydl_cls, {"duration": None})
 
         with pytest.raises(StreamUrlError, match="Could not determine duration"):
             get_video_duration("dQw4w9WgXcQ")

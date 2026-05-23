@@ -39,4 +39,5 @@ class TestGetYoutubeVideoMetadata:
             SAMPLE_VIDEO_ID,
             include_channel_description=True,
             proxy="http://proxy:8080",
+            cookies_from_browser=None,
         )
