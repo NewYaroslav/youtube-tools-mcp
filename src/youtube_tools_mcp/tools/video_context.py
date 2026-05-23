@@ -41,6 +41,9 @@ def get_youtube_video_context(
         languages: Preferred transcript language codes. Defaults to ["ru", "en"].
         include_channel_description: Try to include channel description when available.
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
+        cookies_from_browser: Browser to extract cookies from for YouTube auth.
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
 
