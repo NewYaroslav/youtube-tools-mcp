@@ -25,6 +25,7 @@ def download_video_file(
     quality: str = "720p",
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> str:
     """Download a YouTube video to a local file.
 
@@ -33,6 +34,8 @@ def download_video_file(
         output_dir: Directory to save the video file. Defaults to current directory.
         quality: Quality preset: "best", "720p", "480p", "360p". Defaults to "720p".
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
 
     Returns:
         Absolute path to the downloaded video file.
@@ -45,7 +48,9 @@ def download_video_file(
     out = Path(output_dir).resolve()
 
     try:
-        path = download_video(video_id, out, quality, proxy=proxy, cookies_from_browser=cookies_from_browser)
+        path = download_video(
+            video_id, out, quality, proxy=proxy, cookies_from_browser=cookies_from_browser, client=client
+        )
         return str(path)
     except FFmpegNotFoundError as exc:
         raise _err(str(exc)) from exc
@@ -54,14 +59,14 @@ def download_video_file(
             f"Download failed: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
             "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
-            "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+            "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
         ) from exc
     except DownloadError as exc:
         raise _err(
             f"Download failed: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
             "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
-            "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+            "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
         ) from exc
 
 
@@ -71,6 +76,7 @@ def download_audio_file(
     audio_format: str = "mp3",
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> str:
     """Download audio only from a YouTube video to a local file.
 
@@ -81,6 +87,8 @@ def download_audio_file(
         output_dir: Directory to save the audio file. Defaults to current directory.
         audio_format: Output audio format: "mp3", "m4a", "opus", "wav". Defaults to "mp3".
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
 
     Returns:
         Absolute path to the downloaded audio file.
@@ -93,7 +101,9 @@ def download_audio_file(
     out = Path(output_dir).resolve()
 
     try:
-        path = download_audio(video_id, out, audio_format, proxy=proxy, cookies_from_browser=cookies_from_browser)
+        path = download_audio(
+            video_id, out, audio_format, proxy=proxy, cookies_from_browser=cookies_from_browser, client=client
+        )
         return str(path)
     except FFmpegNotFoundError as exc:
         raise _err(str(exc)) from exc

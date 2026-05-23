@@ -100,6 +100,7 @@ def extract_video_frame(
     vision_model: str | None = None,
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> CallToolResult:
     """Extract a single frame from a YouTube video at a specific timestamp.
 
@@ -118,6 +119,10 @@ def extract_video_frame(
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
+        cookies_from_browser: Browser to extract cookies from for YouTube auth.
+            Examples: "chrome", "firefox", "edge", "safari".
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
 
     Returns:
         MCP result with either TextContent (file path) or ImageContent (inline).
@@ -133,13 +138,13 @@ def extract_video_frame(
         raise _err(str(exc)) from exc
 
     try:
-        stream_url, _ = get_stream_url(video_id, proxy=proxy, cookies_from_browser=cookies_from_browser)
+        stream_url, _ = get_stream_url(video_id, proxy=proxy, cookies_from_browser=cookies_from_browser, client=client)
     except DownloadError as exc:
         raise _err(
             f"Failed to get stream URL: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
             "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
-            "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+            "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
         ) from exc
 
     if vision_analysis:
@@ -232,6 +237,7 @@ def extract_video_frames(
     vision_model: str | None = None,
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
@@ -252,6 +258,8 @@ def extract_video_frames(
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
         cookies_from_browser: Browser to extract cookies from for YouTube auth.
             Examples: "chrome", "firefox", "edge", "safari".
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
 
     Returns:
         MCP result with either TextContent (file paths) or ImageContent list (inline).
@@ -269,13 +277,13 @@ def extract_video_frames(
         raise _err(str(exc)) from exc
 
     try:
-        stream_url, _ = get_stream_url(video_id, proxy=proxy, cookies_from_browser=cookies_from_browser)
+        stream_url, _ = get_stream_url(video_id, proxy=proxy, cookies_from_browser=cookies_from_browser, client=client)
     except DownloadError as exc:
         raise _err(
             f"Failed to get stream URL: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
             "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
-            "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+            "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
         ) from exc
 
     if vision_analysis:
@@ -369,6 +377,7 @@ def extract_frames_every(
     vision_model: str | None = None,
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
@@ -390,6 +399,8 @@ def extract_frames_every(
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
         cookies_from_browser: Browser to extract cookies from for YouTube auth.
             Examples: "chrome", "firefox", "edge", "safari".
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
 
     Returns:
         MCP result with either TextContent (file paths) or ImageContent list (inline).
@@ -409,13 +420,15 @@ def extract_frames_every(
         raise _err(str(exc)) from exc
 
     try:
-        stream_url, duration = get_stream_url(video_id, proxy=proxy, cookies_from_browser=cookies_from_browser)
+        stream_url, duration = get_stream_url(
+            video_id, proxy=proxy, cookies_from_browser=cookies_from_browser, client=client
+        )
     except DownloadError as exc:
         raise _err(
             f"Failed to get video info: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
             "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
-            "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+            "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
         ) from exc
 
     count = min(int(duration / interval_sec), max_frames)

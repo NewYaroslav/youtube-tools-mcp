@@ -40,4 +40,24 @@ class TestGetYoutubeVideoMetadata:
             include_channel_description=True,
             proxy="http://proxy:8080",
             cookies_from_browser=None,
+            client="web",
+        )
+
+    @patch("youtube_tools_mcp.tools.metadata.fetch_video_metadata")
+    @patch("youtube_tools_mcp.tools.metadata.extract_video_id", return_value=SAMPLE_VIDEO_ID)
+    def test_passes_client_to_fetch(self, mock_extract: MagicMock, mock_fetch: MagicMock) -> None:
+        mock_fetch.return_value = YouTubeVideoMetadata(
+            video_id=SAMPLE_VIDEO_ID,
+            video_url=f"https://www.youtube.com/watch?v={SAMPLE_VIDEO_ID}",
+            title="Client Test",
+            source="yt-dlp",
+        )
+
+        get_youtube_video_metadata(SAMPLE_VIDEO_ID, client="android")
+        mock_fetch.assert_called_once_with(
+            SAMPLE_VIDEO_ID,
+            include_channel_description=True,
+            proxy=None,
+            cookies_from_browser=None,
+            client="android",
         )

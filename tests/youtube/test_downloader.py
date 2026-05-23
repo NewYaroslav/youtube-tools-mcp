@@ -44,6 +44,16 @@ class TestGetStreamUrl:
         assert opts["cookiesfrombrowser"] == ["chrome"]
 
     @patch("yt_dlp.YoutubeDL")
+    def test_uses_android_client_when_set(self, mock_ydl_cls: MagicMock) -> None:
+        _mock_ytdl_context(mock_ydl_cls, {"url": "https://stream.url/video.mp4", "duration": 210.5})
+
+        get_stream_url("dQw4w9WgXcQ", client="android")
+
+        opts = mock_ydl_cls.call_args[0][0]
+        assert "Android" in opts["user_agent"]
+        assert opts["extractor_args"]["youtube"]["player_client"] == "android"
+
+    @patch("yt_dlp.YoutubeDL")
     def test_raises_stream_url_error_when_no_url(self, mock_ydl_cls: MagicMock) -> None:
         _mock_ytdl_context(mock_ydl_cls, {"url": None, "duration": 120.0})
 
@@ -81,6 +91,16 @@ class TestGetVideoDuration:
 
         opts = mock_ydl_cls.call_args[0][0]
         assert opts["cookiesfrombrowser"] == ["firefox"]
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_uses_ios_client_when_set(self, mock_ydl_cls: MagicMock) -> None:
+        _mock_ytdl_context(mock_ydl_cls, {"duration": 210.5})
+
+        get_video_duration("dQw4w9WgXcQ", client="ios")
+
+        opts = mock_ydl_cls.call_args[0][0]
+        assert "iPhone" in opts["user_agent"]
+        assert opts["extractor_args"]["youtube"]["player_client"] == "ios"
 
     @patch("yt_dlp.YoutubeDL")
     def test_raises_when_no_info(self, mock_ydl_cls: MagicMock) -> None:
