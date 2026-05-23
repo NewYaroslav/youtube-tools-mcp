@@ -10,6 +10,8 @@ from youtube_tools_mcp.youtube.downloader import (
     FFmpegError,
     FFmpegNotFoundError,
     StreamUrlError,
+    download_audio,
+    download_video,
     extract_frame,
     extract_frames_batch,
     get_stream_url,
@@ -246,3 +248,53 @@ class TestExtractFramesBatch:
             pytest.raises(FFmpegNotFoundError),
         ):
             extract_frames_batch("https://stream.url/video.mp4", [0.0], Path("/tmp/frames"))
+
+
+class TestDownloadVideo:
+    @patch("yt_dlp.YoutubeDL")
+    @patch("youtube_tools_mcp.youtube.downloader.shutil.which")
+    def test_uses_cookies_and_client(self, mock_which: MagicMock, mock_ydl_cls: MagicMock) -> None:
+        mock_which.return_value = "/usr/bin/ffmpeg"
+        mock_ydl = MagicMock()
+        mock_ydl_cls.return_value.__enter__ = MagicMock(return_value=mock_ydl)
+        mock_ydl_cls.return_value.__exit__ = MagicMock(return_value=False)
+        mock_ydl.extract_info.return_value = {"title": "Test", "ext": "mp4"}
+        mock_ydl.prepare_filename.return_value = "/tmp/Test.mp4"
+
+        output_dir = Path("/tmp/downloads")
+        with patch.object(Path, "exists", return_value=True), patch.object(Path, "mkdir"):
+            result = download_video(
+                "dQw4w9WgXcQ", output_dir, proxy="http://proxy:8080", cookies_from_browser="chrome", client="android"
+            )
+
+        opts = mock_ydl_cls.call_args[0][0]
+        assert opts["proxy"] == "http://proxy:8080"
+        assert opts["cookiesfrombrowser"] == ["chrome"]
+        assert "Android" in opts["user_agent"]
+        assert opts["extractor_args"]["youtube"]["player_client"] == "android"
+        assert result.name == "Test.mp4"
+
+
+class TestDownloadAudio:
+    @patch("yt_dlp.YoutubeDL")
+    @patch("youtube_tools_mcp.youtube.downloader.shutil.which")
+    def test_uses_cookies_and_client(self, mock_which: MagicMock, mock_ydl_cls: MagicMock) -> None:
+        mock_which.return_value = "/usr/bin/ffmpeg"
+        mock_ydl = MagicMock()
+        mock_ydl_cls.return_value.__enter__ = MagicMock(return_value=mock_ydl)
+        mock_ydl_cls.return_value.__exit__ = MagicMock(return_value=False)
+        mock_ydl.extract_info.return_value = {"title": "Test", "ext": "webm"}
+        mock_ydl.prepare_filename.return_value = "/tmp/Test.webm"
+
+        output_dir = Path("/tmp/downloads")
+        with patch.object(Path, "exists", return_value=True), patch.object(Path, "mkdir"):
+            result = download_audio(
+                "dQw4w9WgXcQ", output_dir, proxy="http://proxy:8080", cookies_from_browser="firefox", client="ios"
+            )
+
+        opts = mock_ydl_cls.call_args[0][0]
+        assert opts["proxy"] == "http://proxy:8080"
+        assert opts["cookiesfrombrowser"] == ["firefox"]
+        assert "iPhone" in opts["user_agent"]
+        assert opts["extractor_args"]["youtube"]["player_client"] == "ios"
+        assert result.name == "Test.mp3"

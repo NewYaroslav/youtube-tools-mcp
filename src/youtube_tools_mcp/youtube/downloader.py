@@ -293,6 +293,7 @@ def download_video(
         ydl_opts["proxy"] = resolved
     if cookies_from_browser:
         ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
+    _apply_client_options(ydl_opts, client)
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -366,6 +367,7 @@ def download_audio(
         ydl_opts["proxy"] = resolved
     if cookies_from_browser:
         ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
+    _apply_client_options(ydl_opts, client)
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

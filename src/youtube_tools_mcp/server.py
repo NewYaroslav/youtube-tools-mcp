@@ -80,7 +80,8 @@ def get_youtube_video_metadata(
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
         cookies_from_browser: Browser to extract cookies from for YouTube auth.
-            Examples: "chrome", "firefox", "edge", "safari".
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
     """
@@ -108,7 +109,8 @@ def get_youtube_video_context(
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
         cookies_from_browser: Browser to extract cookies from for YouTube auth.
-            Examples: "chrome", "firefox", "edge", "safari".
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
     """
@@ -189,7 +191,8 @@ def extract_video_frame(
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
         cookies_from_browser: Browser to extract cookies from for YouTube auth.
-            Examples: "chrome", "firefox", "edge", "safari".
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
     """
@@ -247,7 +250,8 @@ def extract_video_frames(
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
         cookies_from_browser: Browser to extract cookies from for YouTube auth.
-            Examples: "chrome", "firefox", "edge", "safari".
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
     """
@@ -307,7 +311,8 @@ def extract_frames_every(
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
         cookies_from_browser: Browser to extract cookies from for YouTube auth.
-            Examples: "chrome", "firefox", "edge", "safari".
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
     """
@@ -381,7 +386,8 @@ def download_video(
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
         cookies_from_browser: Browser to extract cookies from for YouTube auth.
-            Examples: "chrome", "firefox", "edge", "safari".
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
     """
@@ -409,7 +415,8 @@ def download_audio(
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
         cookies_from_browser: Browser to extract cookies from for YouTube auth.
-            Examples: "chrome", "firefox", "edge", "safari".
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
     """

@@ -90,7 +90,8 @@ def get_youtube_video_context(
         raise _err(
             f"Failed to fetch transcript: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used. "
+            "Note: cookies_from_browser only helps metadata/download parts of this tool, not transcript fetching."
         ) from exc
 
     payload: dict[str, object] = {
