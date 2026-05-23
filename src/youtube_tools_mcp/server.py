@@ -509,8 +509,8 @@ def list_channel_playlists(
     Requires YOUTUBE_API_KEY environment variable.
 
     Args:
-        channel_id_or_url: Channel URL or raw channel ID (UC...).
-        max_results: Maximum number of playlists to return. Defaults to 50.
+        channel_id_or_url: Channel URL, handle (@name), or raw channel ID (UC...).
+        max_results: Maximum number of playlists to return (1..50). Defaults to 50.
         proxy: Proxy URL for YouTube requests.
             Example: http://user:pass@host:port.
     """

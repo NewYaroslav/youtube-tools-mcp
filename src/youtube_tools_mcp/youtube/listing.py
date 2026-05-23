@@ -11,7 +11,7 @@ from youtube_tools_mcp.utils.url import (
     resolve_channel_handle,
 )
 from youtube_tools_mcp.youtube.downloader import _apply_client_options
-from youtube_tools_mcp.youtube.metadata import _youtube_api_get
+from youtube_tools_mcp.youtube.metadata import _first_item, _youtube_api_get
 
 
 class ListingError(Exception):
@@ -24,6 +24,48 @@ class PlaylistNotFoundError(ListingError):
 
 class ChannelNotFoundError(ListingError):
     """Channel not found or has no videos."""
+
+
+def _clamp_max_results(value: int, *, max_allowed: int) -> int:
+    if value < 1:
+        raise ListingError(f"max_results must be >= 1, got {value}")
+    return min(value, max_allowed)
+
+
+def _resolve_channel_id_for_api(
+    channel_id_or_url: str,
+    api_key: str,
+    proxy: str | None = None,
+) -> str:
+    try:
+        return extract_channel_id(channel_id_or_url)
+    except ValueError:
+        pass
+
+    handle = resolve_channel_handle(channel_id_or_url)
+    if handle is None:
+        raise ChannelNotFoundError(
+            f"Cannot extract channel ID or handle from: {channel_id_or_url!r}"
+        ) from None
+
+    data = _youtube_api_get(
+        "channels",
+        {
+            "part": "id",
+            "forHandle": handle,
+            "key": api_key,
+        },
+        proxy=proxy,
+    )
+    item = _first_item(data)
+    if item is None:
+        raise ChannelNotFoundError(f"Handle @{handle} not found")
+    cid = item.get("id")
+    if not isinstance(cid, str):
+        raise ChannelNotFoundError(
+            f"Handle @{handle} returned no channel ID"
+        ) from None
+    return cid
 
 
 def _extract_entries_ytdlp(
@@ -92,6 +134,7 @@ def list_playlist_videos(
         cookies_from_browser: Browser to extract cookies from for YouTube auth.
         client: yt-dlp client profile to spoof.
     """
+    max_results = _clamp_max_results(max_results, max_allowed=500)
     playlist_id = extract_playlist_id(playlist_id_or_url)
     url = f"https://www.youtube.com/playlist?list={playlist_id}"
     entries = _extract_entries_ytdlp(url, max_results, proxy, cookies_from_browser, client)
@@ -118,6 +161,7 @@ def list_channel_videos(
         cookies_from_browser: Browser to extract cookies from for YouTube auth.
         client: yt-dlp client profile to spoof.
     """
+    max_results = _clamp_max_results(max_results, max_allowed=500)
     handle = resolve_channel_handle(channel_id_or_url)
     if handle:
         url = f"https://www.youtube.com/@{handle}/videos"
@@ -143,20 +187,18 @@ def list_channel_playlists(
     Requires YOUTUBE_API_KEY environment variable.
 
     Args:
-        channel_id_or_url: Channel URL or raw channel ID (UC...).
-        max_results: Maximum number of playlists to return.
+        channel_id_or_url: Channel URL, handle (@name), or raw channel ID (UC...).
+        max_results: Maximum number of playlists to return (1..50).
         proxy: Optional proxy URL override.
     """
-    try:
-        channel_id = extract_channel_id(channel_id_or_url)
-    except ValueError:
-        raise ChannelNotFoundError(
-            f"Cannot extract channel ID from: {channel_id_or_url!r}"
-        ) from None
-
     api_key = os.environ.get("YOUTUBE_API_KEY")
     if not api_key:
-        raise ListingError("list_channel_playlists requires YOUTUBE_API_KEY. Set it as an environment variable.")
+        raise ListingError(
+            "list_channel_playlists requires YOUTUBE_API_KEY. Set it as an environment variable."
+        )
+
+    channel_id = _resolve_channel_id_for_api(channel_id_or_url, api_key, proxy=proxy)
+    max_results = _clamp_max_results(max_results, max_allowed=50)
 
     try:
         data = _youtube_api_get(
@@ -170,7 +212,9 @@ def list_channel_playlists(
             proxy=proxy,
         )
     except Exception as exc:
-        raise ChannelNotFoundError(f"Failed to fetch playlists for channel {channel_id}: {exc}") from exc
+        raise ChannelNotFoundError(
+            f"Failed to fetch playlists for channel {channel_id}: {exc}"
+        ) from exc
 
     items = data.get("items")
     if not isinstance(items, list):

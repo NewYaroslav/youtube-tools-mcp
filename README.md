@@ -198,9 +198,19 @@ claude mcp add --scope user \
 
 - `list_playlist_videos` accepts a playlist URL or raw playlist ID and returns a JSON list of videos with `video_id`, `title`, `url`, `duration`, and `position`.
 - `list_channel_videos` accepts a channel URL, handle (`@name`), or raw channel ID (`UC...`) and returns upload videos in the same shape.
-- `list_channel_playlists` requires `YOUTUBE_API_KEY` and returns playlists with `playlist_id`, `title`, `description`, and `video_count`.
+- `list_channel_playlists` accepts a channel URL, handle (`@name`), or raw channel ID (`UC...`) and requires `YOUTUBE_API_KEY`. Returns playlists with `playlist_id`, `title`, `description`, and `video_count`.
 
-Both listing tools support `max_results` (default 50) and pass through `proxy`, `cookies_from_browser`, and `client` parameters the same way as other yt-dlp-based tools.
+Listing parameters:
+
+| Tool | `max_results` range | Default |
+|---|---|---|
+| `list_playlist_videos` | 1..500 | 50 |
+| `list_channel_videos` | 1..500 | 50 |
+| `list_channel_playlists` | 1..50 | 50 |
+
+`proxy`, `cookies_from_browser`, and `client` pass through to yt-dlp the same way as other yt-dlp-based tools.
+
+Note: ordering and completeness of `list_playlist_videos` and `list_channel_videos` depend on YouTube page structure and yt-dlp flat extraction.
 
 ## System Requirements
 

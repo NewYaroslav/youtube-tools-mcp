@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+from mcp.shared.exceptions import McpError
+
 from youtube_tools_mcp.tools.listing import (
     list_channel_playlists_tool,
     list_channel_videos_tool,
@@ -17,10 +20,10 @@ class TestListPlaylistVideosTool:
         assert '"video_id": "v1"' in result
 
     @patch("youtube_tools_mcp.tools.listing.list_playlist_videos")
-    def test_invalid_url_returns_error_json(self, mock_list: MagicMock) -> None:
+    def test_invalid_url_raises_mcp_error(self, mock_list: MagicMock) -> None:
         mock_list.side_effect = ValueError("Cannot extract")
-        result = list_playlist_videos_tool("bad")
-        assert '"error"' in result
+        with pytest.raises(McpError, match="Cannot extract"):
+            list_playlist_videos_tool("bad")
 
     @patch("youtube_tools_mcp.tools.listing.list_playlist_videos")
     def test_passes_parameters(self, mock_list: MagicMock) -> None:

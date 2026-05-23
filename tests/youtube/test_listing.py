@@ -8,7 +8,9 @@ from youtube_tools_mcp.youtube.listing import (
     ChannelNotFoundError,
     ListingError,
     PlaylistNotFoundError,
+    _clamp_max_results,
     _extract_entries_ytdlp,
+    _resolve_channel_id_for_api,
     list_channel_playlists,
     list_channel_videos,
     list_playlist_videos,
@@ -23,6 +25,54 @@ def _mock_ytdl_context(mock_ydl_cls: MagicMock, entries: list[dict] | None) -> N
         mock_ydl.extract_info.return_value = {"entries": entries}
     mock_ydl_cls.return_value.__enter__ = MagicMock(return_value=mock_ydl)
     mock_ydl_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+
+class TestClampMaxResults:
+    def test_returns_value_when_in_range(self) -> None:
+        assert _clamp_max_results(25, max_allowed=50) == 25
+
+    def test_clamps_to_max_allowed(self) -> None:
+        assert _clamp_max_results(100, max_allowed=50) == 50
+
+    def test_raises_on_zero(self) -> None:
+        with pytest.raises(ListingError, match="max_results must be >= 1"):
+            _clamp_max_results(0, max_allowed=50)
+
+    def test_raises_on_negative(self) -> None:
+        with pytest.raises(ListingError, match="max_results must be >= 1"):
+            _clamp_max_results(-5, max_allowed=50)
+
+
+class TestResolveChannelIdForApi:
+    @patch("youtube_tools_mcp.youtube.listing._youtube_api_get")
+    @patch.dict("os.environ", {"YOUTUBE_API_KEY": "test-key"})
+    def test_returns_raw_channel_id(self, mock_get: MagicMock) -> None:
+        result = _resolve_channel_id_for_api("UCxxxxxxxxxxxxxxxxxxxxxx", api_key="test-key")
+        assert result == "UCxxxxxxxxxxxxxxxxxxxxxx"
+        mock_get.assert_not_called()
+
+    @patch("youtube_tools_mcp.youtube.listing._youtube_api_get")
+    @patch.dict("os.environ", {"YOUTUBE_API_KEY": "test-key"})
+    def test_resolves_handle_via_api(self, mock_get: MagicMock) -> None:
+        mock_get.return_value = {
+            "items": [{"id": "UCresolvedxxxxxxxxxxxxxx"}],
+        }
+        result = _resolve_channel_id_for_api("@testhandle", api_key="test-key")
+        assert result == "UCresolvedxxxxxxxxxxxxxx"
+        mock_get.assert_called_once()
+        args, _ = mock_get.call_args
+        assert args[1]["forHandle"] == "testhandle"
+
+    @patch("youtube_tools_mcp.youtube.listing._youtube_api_get")
+    @patch.dict("os.environ", {"YOUTUBE_API_KEY": "test-key"})
+    def test_raises_when_handle_not_found(self, mock_get: MagicMock) -> None:
+        mock_get.return_value = {"items": []}
+        with pytest.raises(ChannelNotFoundError, match="Handle @testhandle not found"):
+            _resolve_channel_id_for_api("@testhandle", api_key="test-key")
+
+    def test_raises_on_invalid_input(self) -> None:
+        with pytest.raises(ChannelNotFoundError, match="Cannot extract"):
+            _resolve_channel_id_for_api("not-a-channel", api_key="test-key")
 
 
 class TestExtractEntriesYtdlp:
@@ -94,6 +144,12 @@ class TestListPlaylistVideos:
         with pytest.raises(ValueError, match="Cannot extract"):
             list_playlist_videos("not-a-playlist")
 
+    @patch("yt_dlp.YoutubeDL")
+    def test_zero_max_results_raises(self, mock_ydl_cls: MagicMock) -> None:
+        _mock_ytdl_context(mock_ydl_cls, [])
+        with pytest.raises(ListingError, match="max_results must be >= 1"):
+            list_playlist_videos("PLtest", max_results=0)
+
 
 class TestListChannelVideos:
     @patch("yt_dlp.YoutubeDL")
@@ -118,6 +174,12 @@ class TestListChannelVideos:
     def test_invalid_id_raises(self) -> None:
         with pytest.raises(ValueError, match="Cannot extract"):
             list_channel_videos("not-a-channel")
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_zero_max_results_raises(self, mock_ydl_cls: MagicMock) -> None:
+        _mock_ytdl_context(mock_ydl_cls, [])
+        with pytest.raises(ListingError, match="max_results must be >= 1"):
+            list_channel_videos("UCxxxxxxxxxxxxxxxxxxxxxx", max_results=0)
 
 
 class TestListChannelPlaylists:
@@ -167,3 +229,37 @@ class TestListChannelPlaylists:
         mock_get.return_value = {"items": []}
         result = list_channel_playlists("UCxxxxxxxxxxxxxxxxxxxxxx")
         assert result == []
+
+    @patch("youtube_tools_mcp.youtube.listing._youtube_api_get")
+    @patch.dict("os.environ", {"YOUTUBE_API_KEY": "test-key"})
+    def test_max_results_greater_than_50_gets_clamped(self, mock_get: MagicMock) -> None:
+        mock_get.return_value = {
+            "items": [
+                {"id": "PL1", "snippet": {"title": "P1"}, "contentDetails": {"itemCount": 1}},
+            ],
+        }
+        result = list_channel_playlists("UCxxxxxxxxxxxxxxxxxxxxxx", max_results=200)
+        assert len(result) == 1
+        args, _ = mock_get.call_args
+        assert args[1]["maxResults"] == "50"
+
+    @patch("youtube_tools_mcp.youtube.listing._youtube_api_get")
+    @patch.dict("os.environ", {"YOUTUBE_API_KEY": "test-key"})
+    def test_zero_max_results_raises(self, mock_get: MagicMock) -> None:
+        with pytest.raises(ListingError, match="max_results must be >= 1"):
+            list_channel_playlists("UCxxxxxxxxxxxxxxxxxxxxxx", max_results=0)
+
+    @patch("youtube_tools_mcp.youtube.listing._youtube_api_get")
+    @patch.dict("os.environ", {"YOUTUBE_API_KEY": "test-key"})
+    def test_resolves_handle_to_channel_id(self, mock_get: MagicMock) -> None:
+        mock_get.side_effect = [
+            {"items": [{"id": "UCresolvedxxxxxxxxxxxxxx"}]},
+            {
+                "items": [
+                    {"id": "PL1", "snippet": {"title": "P1"}, "contentDetails": {"itemCount": 1}},
+                ],
+            },
+        ]
+        result = list_channel_playlists("@testhandle", max_results=1)
+        assert len(result) == 1
+        assert result[0]["playlist_id"] == "PL1"

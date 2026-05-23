@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 
+from mcp.shared.exceptions import McpError
+from mcp.types import INTERNAL_ERROR, ErrorData
+
 from youtube_tools_mcp.youtube.listing import (
     ChannelNotFoundError,
     ListingError,
@@ -10,6 +13,10 @@ from youtube_tools_mcp.youtube.listing import (
     list_channel_videos,
     list_playlist_videos,
 )
+
+
+def _err(msg: str) -> McpError:
+    return McpError(ErrorData(code=INTERNAL_ERROR, message=msg))
 
 
 def list_playlist_videos_tool(
@@ -29,7 +36,7 @@ def list_playlist_videos_tool(
         )
         return json.dumps(videos, ensure_ascii=False, indent=2)
     except (PlaylistNotFoundError, ListingError, ValueError) as exc:
-        return json.dumps({"error": str(exc)}, ensure_ascii=False)
+        raise _err(str(exc)) from exc
 
 
 def list_channel_videos_tool(
@@ -49,7 +56,7 @@ def list_channel_videos_tool(
         )
         return json.dumps(videos, ensure_ascii=False, indent=2)
     except (ChannelNotFoundError, ListingError, ValueError) as exc:
-        return json.dumps({"error": str(exc)}, ensure_ascii=False)
+        raise _err(str(exc)) from exc
 
 
 def list_channel_playlists_tool(
@@ -65,4 +72,4 @@ def list_channel_playlists_tool(
         )
         return json.dumps(playlists, ensure_ascii=False, indent=2)
     except (ChannelNotFoundError, ListingError, ValueError) as exc:
-        return json.dumps({"error": str(exc)}, ensure_ascii=False)
+        raise _err(str(exc)) from exc
