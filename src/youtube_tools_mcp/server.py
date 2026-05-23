@@ -32,7 +32,9 @@ mcp = FastMCP(
         "frame extraction, and video/audio download. "
         "If YouTube blocks a request with a bot-check, captcha, sign-in, "
         "or anti-abuse message, retry the same tool call with the proxy parameter. "
-        "Example proxy format: http://user:pass@host:port."
+        "Example proxy format: http://user:pass@host:port. "
+        "If proxy does not help, try cookies_from_browser (e.g. 'chrome', 'firefox'). "
+        "You can also try client='android' or client='ios' to spoof a mobile client."
     ),
 )
 
@@ -63,6 +65,8 @@ def get_youtube_video_metadata(
     url_or_id: str,
     include_channel_description: bool = True,
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> str:
     """Fetch YouTube video metadata and channel information.
 
@@ -75,8 +79,13 @@ def get_youtube_video_metadata(
         proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
+        cookies_from_browser: Browser to extract cookies from for YouTube auth.
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
     """
-    return _get_youtube_video_metadata(url_or_id, include_channel_description, proxy)
+    return _get_youtube_video_metadata(url_or_id, include_channel_description, proxy, cookies_from_browser, client)
 
 
 @mcp.tool()
@@ -85,6 +94,8 @@ def get_youtube_video_context(
     languages: list[str] | None = None,
     include_channel_description: bool = True,
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> str:
     """Fetch transcript plus video and channel metadata.
 
@@ -97,12 +108,19 @@ def get_youtube_video_context(
         proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
+        cookies_from_browser: Browser to extract cookies from for YouTube auth.
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
     """
     return _get_youtube_video_context(
         url_or_id,
         languages,
         include_channel_description,
         proxy,
+        cookies_from_browser,
+        client,
     )
 
 
@@ -149,6 +167,8 @@ def extract_video_frame(
     vision_prompt: str | None = None,
     vision_model: str | None = None,
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> CallToolResult:
     """Extract a single frame from a YouTube video at a specific timestamp.
 
@@ -170,6 +190,11 @@ def extract_video_frame(
         proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
+        cookies_from_browser: Browser to extract cookies from for YouTube auth.
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
     """
     return _extract_video_frame(
         url_or_id=url_or_id,
@@ -183,6 +208,8 @@ def extract_video_frame(
         vision_prompt=vision_prompt,
         vision_model=vision_model,
         proxy=proxy,
+        cookies_from_browser=cookies_from_browser,
+        client=client,
     )
 
 
@@ -199,6 +226,8 @@ def extract_video_frames(
     vision_prompt: str | None = None,
     vision_model: str | None = None,
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
@@ -220,6 +249,11 @@ def extract_video_frames(
         proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
+        cookies_from_browser: Browser to extract cookies from for YouTube auth.
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
     """
     return _extract_video_frames(
         url_or_id=url_or_id,
@@ -233,6 +267,8 @@ def extract_video_frames(
         vision_prompt=vision_prompt,
         vision_model=vision_model,
         proxy=proxy,
+        cookies_from_browser=cookies_from_browser,
+        client=client,
     )
 
 
@@ -250,6 +286,8 @@ def extract_frames_every(
     vision_prompt: str | None = None,
     vision_model: str | None = None,
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
@@ -272,6 +310,11 @@ def extract_frames_every(
         proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
+        cookies_from_browser: Browser to extract cookies from for YouTube auth.
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
     """
     return _extract_frames_every(
         url_or_id=url_or_id,
@@ -286,6 +329,8 @@ def extract_frames_every(
         vision_prompt=vision_prompt,
         vision_model=vision_model,
         proxy=proxy,
+        cookies_from_browser=cookies_from_browser,
+        client=client,
     )
 
 
@@ -328,6 +373,8 @@ def download_video(
     output_dir: str = ".",
     quality: str = "720p",
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> str:
     """Download a YouTube video to a local file.
 
@@ -338,8 +385,13 @@ def download_video(
         proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
+        cookies_from_browser: Browser to extract cookies from for YouTube auth.
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
     """
-    return _download_video_file(url_or_id, output_dir, quality, proxy)
+    return _download_video_file(url_or_id, output_dir, quality, proxy, cookies_from_browser, client)
 
 
 @mcp.tool()
@@ -348,6 +400,8 @@ def download_audio(
     output_dir: str = ".",
     audio_format: str = "mp3",
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> str:
     """Download audio only from a YouTube video to a local file.
 
@@ -360,8 +414,13 @@ def download_audio(
         proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
+        cookies_from_browser: Browser to extract cookies from for YouTube auth.
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
     """
-    return _download_audio_file(url_or_id, output_dir, audio_format, proxy)
+    return _download_audio_file(url_or_id, output_dir, audio_format, proxy, cookies_from_browser, client)
 
 
 def main() -> None:

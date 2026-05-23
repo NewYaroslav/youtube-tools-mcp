@@ -253,6 +253,17 @@ Add the proxy to your MCP client `env` block:
 }
 ```
 
+### Browser cookies for YouTube authentication
+
+Several tools accept a `cookies_from_browser` argument that tells `yt-dlp` to read cookies from a local browser profile. This is useful when YouTube returns a bot-check, captcha, or sign-in wall.
+
+Supported values include any `yt-dlp` browser syntax, for example:
+
+- `"chrome"`, `"firefox"`, `"edge"`, `"safari"`
+- `"chrome:Profile 1"` for a specific profile
+
+**Security note:** `cookies_from_browser` instructs `yt-dlp` to read authenticated cookies from your local machine. Use it only on trusted machines with browser profiles you own. Never point it at a browser profile you do not control.
+
 ### If you installed the MCP server without tokens
 
 Update the existing `youtube-tools` MCP server entry, add the needed `env` variables, and fully restart the MCP client.

@@ -15,6 +15,8 @@ def get_youtube_video_metadata(
     url_or_id: str,
     include_channel_description: bool = True,
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> str:
     """Fetch YouTube video metadata and channel information.
 
@@ -22,6 +24,8 @@ def get_youtube_video_metadata(
         url_or_id: YouTube video URL or 11-character video ID.
         include_channel_description: Try to include channel description when available.
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
 
     Returns:
         Pretty JSON with video description, channel URL, and optional channel description.
@@ -36,12 +40,15 @@ def get_youtube_video_metadata(
             video_id,
             include_channel_description=include_channel_description,
             proxy=proxy,
+            cookies_from_browser=cookies_from_browser,
+            client=client,
         )
     except MetadataError as exc:
         raise _err(
             f"Failed to fetch video metadata: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
+            "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
         ) from exc
 
     return metadata_to_json(metadata)

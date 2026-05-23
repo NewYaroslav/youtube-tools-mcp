@@ -27,6 +27,30 @@ class VideoDownloadError(DownloadError):
     """Video download failed."""
 
 
+def _apply_client_options(ydl_opts: dict, client: str) -> None:
+    if client == "android":
+        ydl_opts["user_agent"] = (
+            "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+        )
+        ydl_opts.setdefault("extractor_args", {})
+        ydl_opts["extractor_args"]["youtube"] = {"player_client": "android"}
+    elif client == "ios":
+        ydl_opts["user_agent"] = (
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
+        )
+        ydl_opts.setdefault("extractor_args", {})
+        ydl_opts["extractor_args"]["youtube"] = {"player_client": "ios"}
+    elif client == "tv_embedded":
+        ydl_opts.setdefault("extractor_args", {})
+        ydl_opts["extractor_args"]["youtube"] = {"player_client": "tv_embedded"}
+    elif client != "web":
+        raise DownloadError(
+            f"Unknown client {client!r}. Choose from: web, android, ios, tv_embedded."
+        )
+
+
 def _check_ffmpeg() -> None:
     """Raise FFmpegNotFoundError if ffmpeg is not available."""
     if shutil.which("ffmpeg") is not None:
@@ -40,7 +64,12 @@ def _check_ffmpeg() -> None:
     raise FFmpegNotFoundError(msg)
 
 
-def get_stream_url(video_id: str, proxy: str | None = None) -> tuple[str, float]:
+def get_stream_url(
+    video_id: str,
+    proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
+) -> tuple[str, float]:
     """Get a direct video stream URL and duration via yt-dlp without downloading.
 
     Uses itag 18 (360p progressive mp4) which ffmpeg can seek efficiently
@@ -62,6 +91,9 @@ def get_stream_url(video_id: str, proxy: str | None = None) -> tuple[str, float]
     resolved = get_proxy_url(proxy)
     if resolved:
         ydl_opts["proxy"] = resolved
+    if cookies_from_browser:
+        ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
+    _apply_client_options(ydl_opts, client)
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -80,7 +112,12 @@ def get_stream_url(video_id: str, proxy: str | None = None) -> tuple[str, float]
     return direct_url, float(duration)
 
 
-def get_video_duration(video_id: str, proxy: str | None = None) -> float:
+def get_video_duration(
+    video_id: str,
+    proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
+) -> float:
     """Get video duration in seconds via yt-dlp without downloading.
 
     Args:
@@ -97,6 +134,9 @@ def get_video_duration(video_id: str, proxy: str | None = None) -> float:
     resolved = get_proxy_url(proxy)
     if resolved:
         ydl_opts["proxy"] = resolved
+    if cookies_from_browser:
+        ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
+    _apply_client_options(ydl_opts, client)
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -221,6 +261,8 @@ def download_video(
     output_dir: Path,
     quality: str = "720p",
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> Path:
     """Download a YouTube video using yt-dlp.
 
@@ -253,6 +295,9 @@ def download_video(
     resolved = get_proxy_url(proxy)
     if resolved:
         ydl_opts["proxy"] = resolved
+    if cookies_from_browser:
+        ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
+    _apply_client_options(ydl_opts, client)
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -284,6 +329,8 @@ def download_audio(
     output_dir: Path,
     audio_format: str = "mp3",
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> Path:
     """Download audio only from a YouTube video using yt-dlp + ffmpeg.
 
@@ -322,6 +369,9 @@ def download_audio(
     resolved = get_proxy_url(proxy)
     if resolved:
         ydl_opts["proxy"] = resolved
+    if cookies_from_browser:
+        ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
+    _apply_client_options(ydl_opts, client)
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

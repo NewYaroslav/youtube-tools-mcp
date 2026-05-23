@@ -134,7 +134,37 @@ class TestExtractVideoFrame:
         ):
             extract_video_frame(SAMPLE_VIDEO_ID, 10.0, proxy="http://proxy:8080")
 
-        mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy="http://proxy:8080")
+        mock_stream.assert_called_once_with(
+            SAMPLE_VIDEO_ID, proxy="http://proxy:8080", cookies_from_browser=None, client="web"
+        )
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_passes_cookies_from_browser_to_get_stream_url(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)) as mock_stream,
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            extract_video_frame(SAMPLE_VIDEO_ID, 10.0, cookies_from_browser="chrome")
+
+        mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser="chrome", client="web")
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_passes_client_to_get_stream_url(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)) as mock_stream,
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            extract_video_frame(SAMPLE_VIDEO_ID, 10.0, client="android")
+
+        mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser=None, client="android")
 
 
 class TestExtractVideoFrames:
@@ -238,7 +268,37 @@ class TestExtractVideoFrames:
         ):
             extract_video_frames(SAMPLE_VIDEO_ID, [0.0, 5.0], proxy="http://proxy:8080")
 
-        mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy="http://proxy:8080")
+        mock_stream.assert_called_once_with(
+            SAMPLE_VIDEO_ID, proxy="http://proxy:8080", cookies_from_browser=None, client="web"
+        )
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_passes_cookies_from_browser_to_get_stream_url(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)) as mock_stream,
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            extract_video_frames(SAMPLE_VIDEO_ID, [0.0, 5.0], cookies_from_browser="firefox")
+
+        mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser="firefox", client="web")
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_passes_client_to_get_stream_url(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)) as mock_stream,
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            extract_video_frames(SAMPLE_VIDEO_ID, [0.0, 5.0], client="ios")
+
+        mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser=None, client="ios")
 
 
 class TestExtractFramesEvery:
@@ -352,4 +412,34 @@ class TestExtractFramesEvery:
         ):
             extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, proxy="http://proxy:8080")
 
-        mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy="http://proxy:8080")
+        mock_stream.assert_called_once_with(
+            SAMPLE_VIDEO_ID, proxy="http://proxy:8080", cookies_from_browser=None, client="web"
+        )
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_passes_cookies_from_browser_to_get_stream_url(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)) as mock_stream,
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, cookies_from_browser="edge")
+
+        mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser="edge", client="web")
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_passes_client_to_get_stream_url(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)) as mock_stream,
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, client="android")
+
+        mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser=None, client="android")
