@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from youtube_tools_mcp.youtube.downloader import (
+    DownloadError,
     FFmpegError,
     FFmpegNotFoundError,
     StreamUrlError,
@@ -76,6 +77,10 @@ class TestGetStreamUrl:
         with pytest.raises(StreamUrlError, match="Could not determine duration"):
             get_stream_url("dQw4w9WgXcQ")
 
+    def test_raises_on_invalid_client(self) -> None:
+        with pytest.raises(DownloadError, match="Unknown client"):
+            get_stream_url("dQw4w9WgXcQ", client="andrloid")
+
 
 class TestGetVideoDuration:
     @patch("yt_dlp.YoutubeDL")
@@ -117,6 +122,10 @@ class TestGetVideoDuration:
 
         with pytest.raises(StreamUrlError, match="Could not determine duration"):
             get_video_duration("dQw4w9WgXcQ")
+
+    def test_raises_on_invalid_client(self) -> None:
+        with pytest.raises(DownloadError, match="Unknown client"):
+            get_video_duration("dQw4w9WgXcQ", client="andrloid")
 
 
 class TestExtractFrame:
