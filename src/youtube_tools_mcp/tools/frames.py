@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -12,9 +13,12 @@ from youtube_tools_mcp.vision import VisionAPIError, VisionConfigError, analyze_
 from youtube_tools_mcp.youtube.downloader import (
     DownloadError,
     FFmpegNotFoundError,
+    download_video,
     extract_frame,
     extract_frames_batch,
+    get_media_duration,
     get_stream_url,
+    get_video_duration,
 )
 
 _MAX_FRAMES = 30
@@ -40,8 +44,7 @@ def _format_timestamp(seconds: float) -> str:
 
 def _cleanup_dir(path: Path) -> None:
     if path.exists():
-        for f in path.iterdir():
-            f.unlink(missing_ok=True)
+        shutil.rmtree(path, ignore_errors=True)
 
 
 def _analysis_result_text(analyses: list[str], timestamps: list[float], video_id: str) -> TextContent:
@@ -87,6 +90,53 @@ def _analyze_frames(paths: list[Path], vision_prompt: str | None, vision_model: 
         raise _err(str(exc)) from exc
 
 
+def _resolve_video_source(
+    video_id: str,
+    download_first: bool,
+    proxy: str | None,
+    cookies_from_browser: str | None,
+    client: str,
+) -> tuple[str, Path | None]:
+    """Return a video source string (stream URL or local file path) and optional temp directory."""
+    if download_first:
+        temp_dir = Path(tempfile.mkdtemp(prefix="yt_video_"))
+        try:
+            video_path = download_video(
+                video_id,
+                temp_dir,
+                proxy=proxy,
+                cookies_from_browser=cookies_from_browser,
+                client=client,
+            )
+            return str(video_path), temp_dir
+        except DownloadError as exc:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise _err(
+                f"Failed to download video: {exc}. "
+                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                "retry the same tool call with the proxy parameter, "
+                "or with a different proxy if proxy was already used, "
+                "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
+            ) from exc
+    else:
+        try:
+            stream_url, _ = get_stream_url(
+                video_id,
+                proxy=proxy,
+                cookies_from_browser=cookies_from_browser,
+                client=client,
+            )
+            return stream_url, None
+        except DownloadError as exc:
+            raise _err(
+                f"Failed to get stream URL: {exc}. "
+                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                "retry the same tool call with the proxy parameter, "
+                "or with a different proxy if proxy was already used, "
+                "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
+            ) from exc
+
+
 def extract_video_frame(
     url_or_id: str,
     timestamp: float,
@@ -101,6 +151,7 @@ def extract_video_frame(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    download_first: bool = False,
 ) -> CallToolResult:
     """Extract a single frame from a YouTube video at a specific timestamp.
 
@@ -123,6 +174,9 @@ def extract_video_frame(
             Examples: "chrome", "firefox", "edge", "safari".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
+        download_first: Download the full video to a temporary file first,
+            then extract frames locally. Slower, but bypasses CDN stream
+            restrictions when direct streaming fails. Defaults to False.
 
     Returns:
         MCP result with either TextContent (file path) or ImageContent (inline).
@@ -137,91 +191,89 @@ def extract_video_frame(
     except ValueError as exc:
         raise _err(str(exc)) from exc
 
+    video_source, temp_video_dir = _resolve_video_source(video_id, download_first, proxy, cookies_from_browser, client)
     try:
-        stream_url, _ = get_stream_url(video_id, proxy=proxy, cookies_from_browser=cookies_from_browser, client=client)
-    except DownloadError as exc:
-        raise _err(
-            f"Failed to get stream URL: {exc}. "
-            "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
-            "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
-        ) from exc
+        if vision_analysis:
+            tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frame_analysis_"))
+            try:
+                out_path = tmp_dir / "frame.jpg"
+                extract_frame(
+                    video_source,
+                    timestamp,
+                    out_path,
+                    max_width=max_width,
+                    quality=jpeg_quality,
+                    ffmpeg_timeout=ffmpeg_timeout,
+                    proxy=proxy,
+                )
+                analyses = _analyze_frames([out_path], vision_prompt, vision_model)
+                return CallToolResult(content=[_analysis_result_text(analyses, [timestamp], video_id)])
+            except FFmpegNotFoundError as exc:
+                raise _err(str(exc)) from exc
+            except DownloadError as exc:
+                raise _err(
+                    f"Frame extraction failed: {exc}. "
+                    "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                    "retry the same tool call with the proxy parameter, "
+                    "or with a different proxy if proxy was already used, "
+                    "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+                ) from exc
+            finally:
+                _cleanup_dir(tmp_dir)
 
-    if vision_analysis:
-        tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frame_analysis_"))
-        try:
-            out_path = tmp_dir / "frame.jpg"
-            extract_frame(
-                stream_url,
-                timestamp,
-                out_path,
-                max_width=max_width,
-                quality=jpeg_quality,
-                ffmpeg_timeout=ffmpeg_timeout,
-            )
-            analyses = _analyze_frames([out_path], vision_prompt, vision_model)
-            return CallToolResult(content=[_analysis_result_text(analyses, [timestamp], video_id)])
-        except FFmpegNotFoundError as exc:
-            raise _err(str(exc)) from exc
-        except DownloadError as exc:
-            raise _err(
-                f"Frame extraction failed: {exc}. "
-                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-                "retry the same tool call with the proxy parameter, "
-                "or with a different proxy if proxy was already used, "
-                "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
-            ) from exc
-        finally:
-            _cleanup_dir(tmp_dir)
-
-    if return_images:
-        tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frame_"))
-        try:
-            out_path = tmp_dir / "frame.jpg"
-            extract_frame(
-                stream_url,
-                timestamp,
-                out_path,
-                max_width=max_width,
-                quality=jpeg_quality,
-                ffmpeg_timeout=ffmpeg_timeout,
-            )
-            return CallToolResult(content=[_image_content(out_path)])
-        except FFmpegNotFoundError as exc:
-            raise _err(str(exc)) from exc
-        except DownloadError as exc:
-            raise _err(
-                f"Frame extraction failed: {exc}. "
-                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-                "retry the same tool call with the proxy parameter, "
-                "or with a different proxy if proxy was already used, "
-                "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
-            ) from exc
-        finally:
-            _cleanup_dir(tmp_dir)
-    else:
-        save_dir = _get_save_dir(output_dir, video_id)
-        try:
-            out_path = save_dir / f"frame_{timestamp:.0f}.jpg"
-            extract_frame(
-                stream_url,
-                timestamp,
-                out_path,
-                max_width=max_width,
-                quality=jpeg_quality,
-                ffmpeg_timeout=ffmpeg_timeout,
-            )
-            return CallToolResult(content=[_frames_result_text([out_path], [timestamp], video_id, save_dir)])
-        except FFmpegNotFoundError as exc:
-            raise _err(str(exc)) from exc
-        except DownloadError as exc:
-            raise _err(
-                f"Frame extraction failed: {exc}. "
-                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-                "retry the same tool call with the proxy parameter, "
-                "or with a different proxy if proxy was already used, "
-                "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
-            ) from exc
+        if return_images:
+            tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frame_"))
+            try:
+                out_path = tmp_dir / "frame.jpg"
+                extract_frame(
+                    video_source,
+                    timestamp,
+                    out_path,
+                    max_width=max_width,
+                    quality=jpeg_quality,
+                    ffmpeg_timeout=ffmpeg_timeout,
+                    proxy=proxy,
+                )
+                return CallToolResult(content=[_image_content(out_path)])
+            except FFmpegNotFoundError as exc:
+                raise _err(str(exc)) from exc
+            except DownloadError as exc:
+                raise _err(
+                    f"Frame extraction failed: {exc}. "
+                    "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                    "retry the same tool call with the proxy parameter, "
+                    "or with a different proxy if proxy was already used, "
+                    "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+                ) from exc
+            finally:
+                _cleanup_dir(tmp_dir)
+        else:
+            save_dir = _get_save_dir(output_dir, video_id)
+            try:
+                out_path = save_dir / f"frame_{timestamp:.0f}.jpg"
+                extract_frame(
+                    video_source,
+                    timestamp,
+                    out_path,
+                    max_width=max_width,
+                    quality=jpeg_quality,
+                    ffmpeg_timeout=ffmpeg_timeout,
+                    proxy=proxy,
+                )
+                return CallToolResult(content=[_frames_result_text([out_path], [timestamp], video_id, save_dir)])
+            except FFmpegNotFoundError as exc:
+                raise _err(str(exc)) from exc
+            except DownloadError as exc:
+                raise _err(
+                    f"Frame extraction failed: {exc}. "
+                    "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                    "retry the same tool call with the proxy parameter, "
+                    "or with a different proxy if proxy was already used, "
+                    "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+                ) from exc
+    finally:
+        if temp_video_dir is not None:
+            shutil.rmtree(temp_video_dir, ignore_errors=True)
 
 
 def extract_video_frames(
@@ -238,6 +290,7 @@ def extract_video_frames(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    download_first: bool = False,
 ) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
@@ -260,6 +313,8 @@ def extract_video_frames(
             Examples: "chrome", "firefox", "edge", "safari".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
+        download_first: Download the full video to a temporary file first,
+            then extract frames locally. Defaults to False.
 
     Returns:
         MCP result with either TextContent (file paths) or ImageContent list (inline).
@@ -276,91 +331,89 @@ def extract_video_frames(
     except ValueError as exc:
         raise _err(str(exc)) from exc
 
+    video_source, temp_video_dir = _resolve_video_source(video_id, download_first, proxy, cookies_from_browser, client)
     try:
-        stream_url, _ = get_stream_url(video_id, proxy=proxy, cookies_from_browser=cookies_from_browser, client=client)
-    except DownloadError as exc:
-        raise _err(
-            f"Failed to get stream URL: {exc}. "
-            "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
-            "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
-        ) from exc
+        if vision_analysis:
+            tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frames_analysis_"))
+            try:
+                paths = extract_frames_batch(
+                    video_source,
+                    timestamps,
+                    tmp_dir,
+                    max_width=max_width,
+                    quality=jpeg_quality,
+                    ffmpeg_timeout=ffmpeg_timeout,
+                    proxy=proxy,
+                )
+                return CallToolResult(
+                    content=[
+                        _analysis_result_text(_analyze_frames(paths, vision_prompt, vision_model), timestamps, video_id)
+                    ]
+                )
+            except FFmpegNotFoundError as exc:
+                raise _err(str(exc)) from exc
+            except DownloadError as exc:
+                raise _err(
+                    f"Frame extraction failed: {exc}. "
+                    "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                    "retry the same tool call with the proxy parameter, "
+                    "or with a different proxy if proxy was already used, "
+                    "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+                ) from exc
+            finally:
+                _cleanup_dir(tmp_dir)
 
-    if vision_analysis:
-        tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frames_analysis_"))
-        try:
-            paths = extract_frames_batch(
-                stream_url,
-                timestamps,
-                tmp_dir,
-                max_width=max_width,
-                quality=jpeg_quality,
-                ffmpeg_timeout=ffmpeg_timeout,
-            )
-            return CallToolResult(
-                content=[
-                    _analysis_result_text(_analyze_frames(paths, vision_prompt, vision_model), timestamps, video_id)
-                ]
-            )
-        except FFmpegNotFoundError as exc:
-            raise _err(str(exc)) from exc
-        except DownloadError as exc:
-            raise _err(
-                f"Frame extraction failed: {exc}. "
-                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-                "retry the same tool call with the proxy parameter, "
-                "or with a different proxy if proxy was already used, "
-                "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
-            ) from exc
-        finally:
-            _cleanup_dir(tmp_dir)
-
-    if return_images:
-        tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frames_"))
-        try:
-            paths = extract_frames_batch(
-                stream_url,
-                timestamps,
-                tmp_dir,
-                max_width=max_width,
-                quality=jpeg_quality,
-                ffmpeg_timeout=ffmpeg_timeout,
-            )
-            return CallToolResult(content=[_image_content(p) for p in paths])
-        except FFmpegNotFoundError as exc:
-            raise _err(str(exc)) from exc
-        except DownloadError as exc:
-            raise _err(
-                f"Frame extraction failed: {exc}. "
-                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-                "retry the same tool call with the proxy parameter, "
-                "or with a different proxy if proxy was already used, "
-                "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
-            ) from exc
-        finally:
-            _cleanup_dir(tmp_dir)
-    else:
-        save_dir = _get_save_dir(output_dir, video_id)
-        try:
-            paths = extract_frames_batch(
-                stream_url,
-                timestamps,
-                save_dir,
-                max_width=max_width,
-                quality=jpeg_quality,
-                ffmpeg_timeout=ffmpeg_timeout,
-            )
-            return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
-        except FFmpegNotFoundError as exc:
-            raise _err(str(exc)) from exc
-        except DownloadError as exc:
-            raise _err(
-                f"Frame extraction failed: {exc}. "
-                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-                "retry the same tool call with the proxy parameter, "
-                "or with a different proxy if proxy was already used, "
-                "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
-            ) from exc
+        if return_images:
+            tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frames_"))
+            try:
+                paths = extract_frames_batch(
+                    video_source,
+                    timestamps,
+                    tmp_dir,
+                    max_width=max_width,
+                    quality=jpeg_quality,
+                    ffmpeg_timeout=ffmpeg_timeout,
+                    proxy=proxy,
+                )
+                return CallToolResult(content=[_image_content(p) for p in paths])
+            except FFmpegNotFoundError as exc:
+                raise _err(str(exc)) from exc
+            except DownloadError as exc:
+                raise _err(
+                    f"Frame extraction failed: {exc}. "
+                    "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                    "retry the same tool call with the proxy parameter, "
+                    "or with a different proxy if proxy was already used, "
+                    "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+                ) from exc
+            finally:
+                _cleanup_dir(tmp_dir)
+        else:
+            save_dir = _get_save_dir(output_dir, video_id)
+            try:
+                paths = extract_frames_batch(
+                    video_source,
+                    timestamps,
+                    save_dir,
+                    max_width=max_width,
+                    quality=jpeg_quality,
+                    ffmpeg_timeout=ffmpeg_timeout,
+                    proxy=proxy,
+                )
+                return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
+            except FFmpegNotFoundError as exc:
+                raise _err(str(exc)) from exc
+            except DownloadError as exc:
+                raise _err(
+                    f"Frame extraction failed: {exc}. "
+                    "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                    "retry the same tool call with the proxy parameter, "
+                    "or with a different proxy if proxy was already used, "
+                    "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+                ) from exc
+    finally:
+        if temp_video_dir is not None:
+            shutil.rmtree(temp_video_dir, ignore_errors=True)
 
 
 def extract_frames_every(
@@ -378,6 +431,7 @@ def extract_frames_every(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    download_first: bool = False,
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
@@ -401,6 +455,8 @@ def extract_frames_every(
             Examples: "chrome", "firefox", "edge", "safari".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
+        download_first: Download the full video to a temporary file first,
+            then extract frames locally. Defaults to False.
 
     Returns:
         MCP result with either TextContent (file paths) or ImageContent list (inline).
@@ -419,96 +475,108 @@ def extract_frames_every(
     except ValueError as exc:
         raise _err(str(exc)) from exc
 
+    video_source, temp_video_dir = _resolve_video_source(video_id, download_first, proxy, cookies_from_browser, client)
     try:
-        stream_url, duration = get_stream_url(
-            video_id, proxy=proxy, cookies_from_browser=cookies_from_browser, client=client
-        )
-    except DownloadError as exc:
-        raise _err(
-            f"Failed to get video info: {exc}. "
-            "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
-            "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
-        ) from exc
-
-    count = min(int(duration / interval_sec), max_frames)
-    if count == 0:
-        raise _err(f"Video duration ({duration:.1f}s) is shorter than interval ({interval_sec}s)")
-
-    timestamps = [i * interval_sec for i in range(count)]
-
-    if vision_analysis:
-        tmp_dir = Path(tempfile.mkdtemp(prefix="yt_interval_analysis_"))
         try:
-            paths = extract_frames_batch(
-                stream_url,
-                timestamps,
-                tmp_dir,
-                max_width=max_width,
-                quality=jpeg_quality,
-                ffmpeg_timeout=ffmpeg_timeout,
-            )
-            return CallToolResult(
-                content=[
-                    _analysis_result_text(_analyze_frames(paths, vision_prompt, vision_model), timestamps, video_id)
-                ]
-            )
-        except FFmpegNotFoundError as exc:
-            raise _err(str(exc)) from exc
+            if download_first:
+                duration = get_media_duration(video_source, ffmpeg_timeout=ffmpeg_timeout)
+            else:
+                duration = get_video_duration(
+                    video_id, proxy=proxy, cookies_from_browser=cookies_from_browser, client=client
+                )
         except DownloadError as exc:
             raise _err(
-                f"Frame extraction failed: {exc}. "
+                f"Failed to get video info: {exc}. "
                 "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
                 "retry the same tool call with the proxy parameter, "
                 "or with a different proxy if proxy was already used, "
-                "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+                "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
             ) from exc
-        finally:
-            _cleanup_dir(tmp_dir)
 
-    if return_images:
-        tmp_dir = Path(tempfile.mkdtemp(prefix="yt_interval_"))
-        try:
-            paths = extract_frames_batch(
-                stream_url,
-                timestamps,
-                tmp_dir,
-                max_width=max_width,
-                quality=jpeg_quality,
-                ffmpeg_timeout=ffmpeg_timeout,
-            )
-            return CallToolResult(content=[_image_content(p) for p in paths])
-        except FFmpegNotFoundError as exc:
-            raise _err(str(exc)) from exc
-        except DownloadError as exc:
-            raise _err(
-                f"Frame extraction failed: {exc}. "
-                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-                "retry the same tool call with the proxy parameter, "
-                "or with a different proxy if proxy was already used, "
-                "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
-            ) from exc
-        finally:
-            _cleanup_dir(tmp_dir)
-    else:
-        save_dir = _get_save_dir(output_dir, video_id)
-        try:
-            paths = extract_frames_batch(
-                stream_url,
-                timestamps,
-                save_dir,
-                max_width=max_width,
-                quality=jpeg_quality,
-                ffmpeg_timeout=ffmpeg_timeout,
-            )
-            return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
-        except FFmpegNotFoundError as exc:
-            raise _err(str(exc)) from exc
-        except DownloadError as exc:
-            raise _err(
-                f"Frame extraction failed: {exc}. "
-                "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-                "retry the same tool call with the proxy parameter, "
-                "or with a different proxy if proxy was already used, "
-                "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
-            ) from exc
+        count = min(int(duration / interval_sec), max_frames)
+        if count == 0:
+            raise _err(f"Video duration ({duration:.1f}s) is shorter than interval ({interval_sec}s)")
+
+        timestamps = [i * interval_sec for i in range(count)]
+
+        if vision_analysis:
+            tmp_dir = Path(tempfile.mkdtemp(prefix="yt_interval_analysis_"))
+            try:
+                paths = extract_frames_batch(
+                    video_source,
+                    timestamps,
+                    tmp_dir,
+                    max_width=max_width,
+                    quality=jpeg_quality,
+                    ffmpeg_timeout=ffmpeg_timeout,
+                    proxy=proxy,
+                )
+                return CallToolResult(
+                    content=[
+                        _analysis_result_text(_analyze_frames(paths, vision_prompt, vision_model), timestamps, video_id)
+                    ]
+                )
+            except FFmpegNotFoundError as exc:
+                raise _err(str(exc)) from exc
+            except DownloadError as exc:
+                raise _err(
+                    f"Frame extraction failed: {exc}. "
+                    "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                    "retry the same tool call with the proxy parameter, "
+                    "or with a different proxy if proxy was already used, "
+                    "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+                ) from exc
+            finally:
+                _cleanup_dir(tmp_dir)
+
+        if return_images:
+            tmp_dir = Path(tempfile.mkdtemp(prefix="yt_interval_"))
+            try:
+                paths = extract_frames_batch(
+                    video_source,
+                    timestamps,
+                    tmp_dir,
+                    max_width=max_width,
+                    quality=jpeg_quality,
+                    ffmpeg_timeout=ffmpeg_timeout,
+                    proxy=proxy,
+                )
+                return CallToolResult(content=[_image_content(p) for p in paths])
+            except FFmpegNotFoundError as exc:
+                raise _err(str(exc)) from exc
+            except DownloadError as exc:
+                raise _err(
+                    f"Frame extraction failed: {exc}. "
+                    "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                    "retry the same tool call with the proxy parameter, "
+                    "or with a different proxy if proxy was already used, "
+                    "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+                ) from exc
+            finally:
+                _cleanup_dir(tmp_dir)
+        else:
+            save_dir = _get_save_dir(output_dir, video_id)
+            try:
+                paths = extract_frames_batch(
+                    video_source,
+                    timestamps,
+                    save_dir,
+                    max_width=max_width,
+                    quality=jpeg_quality,
+                    ffmpeg_timeout=ffmpeg_timeout,
+                    proxy=proxy,
+                )
+                return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
+            except FFmpegNotFoundError as exc:
+                raise _err(str(exc)) from exc
+            except DownloadError as exc:
+                raise _err(
+                    f"Frame extraction failed: {exc}. "
+                    "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
+                    "retry the same tool call with the proxy parameter, "
+                    "or with a different proxy if proxy was already used, "
+                    "or try cookies_from_browser (e.g. 'chrome', 'firefox')."
+                ) from exc
+    finally:
+        if temp_video_dir is not None:
+            shutil.rmtree(temp_video_dir, ignore_errors=True)

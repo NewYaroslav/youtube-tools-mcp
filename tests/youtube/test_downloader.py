@@ -15,6 +15,7 @@ from youtube_tools_mcp.youtube.downloader import (
     download_video,
     extract_frame,
     extract_frames_batch,
+    get_media_duration,
     get_stream_url,
     get_video_duration,
 )
@@ -128,6 +129,55 @@ class TestGetVideoDuration:
             get_video_duration("dQw4w9WgXcQ", client="andrloid")
 
 
+class TestGetMediaDuration:
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_returns_float_from_ffprobe_stdout(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "210.5\n"
+        mock_subprocess.run.return_value = mock_result
+
+        result = get_media_duration("/tmp/video.mp4")
+        assert result == 210.5
+
+        cmd = mock_subprocess.run.call_args[0][0]
+        assert cmd[0] == "ffprobe"
+        assert cmd[-1] == "/tmp/video.mp4"
+
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_raises_ffmpeg_error_on_nonzero_exit(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Invalid data"
+        mock_subprocess.run.return_value = mock_result
+
+        with pytest.raises(FFmpegError, match="ffprobe failed"):
+            get_media_duration("/tmp/video.mp4")
+
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_raises_ffmpeg_error_on_invalid_stdout(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "not_a_number"
+        mock_subprocess.run.return_value = mock_result
+
+        with pytest.raises(FFmpegError, match="invalid duration"):
+            get_media_duration("/tmp/video.mp4")
+
+    def test_raises_ffmpeg_not_found(self) -> None:
+        with (
+            patch("youtube_tools_mcp.youtube.downloader.shutil.which", return_value=None),
+            pytest.raises(FFmpegNotFoundError),
+        ):
+            get_media_duration("/tmp/video.mp4")
+
+
 class TestExtractFrame:
     @patch("youtube_tools_mcp.youtube.downloader.shutil")
     @patch("youtube_tools_mcp.youtube.downloader.subprocess")
@@ -216,13 +266,48 @@ class TestExtractFrame:
         ):
             extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
 
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_passes_proxy_via_env(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_subprocess.run.return_value = mock_result
+        mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
+
+        output_path = Path("/tmp/test_frame.jpg")
+        with patch.object(Path, "exists", return_value=True):
+            extract_frame("https://stream.url/video.mp4", 10.0, output_path, proxy="http://proxy:8080")
+
+        kwargs = mock_subprocess.run.call_args.kwargs
+        assert kwargs["env"]["HTTP_PROXY"] == "http://proxy:8080"
+        assert kwargs["env"]["HTTPS_PROXY"] == "http://proxy:8080"
+
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_no_env_when_proxy_is_none(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_subprocess.run.return_value = mock_result
+        mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
+
+        output_path = Path("/tmp/test_frame.jpg")
+        with patch.object(Path, "exists", return_value=True):
+            extract_frame("https://stream.url/video.mp4", 10.0, output_path, proxy=None)
+
+        kwargs = mock_subprocess.run.call_args.kwargs
+        assert kwargs.get("env") is None
+
 
 class TestExtractFramesBatch:
     @patch("youtube_tools_mcp.youtube.downloader.extract_frame")
     @patch("youtube_tools_mcp.youtube.downloader.shutil")
     def test_extracts_multiple_frames(self, mock_shutil: MagicMock, mock_extract: MagicMock) -> None:
         mock_shutil.which.return_value = "/usr/bin/ffmpeg"
-        mock_extract.side_effect = lambda url, ts, path, max_width=None, quality=5, ffmpeg_timeout=60.0: path
+        mock_extract.side_effect = lambda url, ts, path, max_width=None, quality=5, ffmpeg_timeout=60.0, proxy=None: (
+            path
+        )
 
         output_dir = Path("/tmp/frames")
         timestamps = [0.0, 5.0, 10.0]
@@ -250,6 +335,28 @@ class TestExtractFramesBatch:
 
         assert result == []
         mock_extract.assert_not_called()
+
+    @patch("youtube_tools_mcp.youtube.downloader.extract_frame")
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    def test_passes_proxy_to_extract_frame(self, mock_shutil: MagicMock, mock_extract: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_extract.side_effect = lambda url, ts, path, max_width=None, quality=5, ffmpeg_timeout=60.0, proxy=None: (
+            path
+        )
+
+        output_dir = Path("/tmp/frames")
+        timestamps = [0.0, 5.0]
+
+        with patch.object(Path, "mkdir"):
+            extract_frames_batch(
+                "https://stream.url/video.mp4",
+                timestamps,
+                output_dir,
+                proxy="http://proxy:8080",
+            )
+
+        assert mock_extract.call_count == 2
+        assert mock_extract.call_args.kwargs["proxy"] == "http://proxy:8080"
 
     def test_raises_ffmpeg_not_found(self) -> None:
         with (
