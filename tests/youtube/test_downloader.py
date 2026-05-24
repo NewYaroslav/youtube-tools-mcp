@@ -15,6 +15,7 @@ from youtube_tools_mcp.youtube.downloader import (
     download_video,
     extract_frame,
     extract_frames_batch,
+    get_media_duration,
     get_stream_url,
     get_video_duration,
 )
@@ -126,6 +127,55 @@ class TestGetVideoDuration:
     def test_raises_on_invalid_client(self) -> None:
         with pytest.raises(DownloadError, match="Unknown client"):
             get_video_duration("dQw4w9WgXcQ", client="andrloid")
+
+
+class TestGetMediaDuration:
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_returns_float_from_ffprobe_stdout(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "210.5\n"
+        mock_subprocess.run.return_value = mock_result
+
+        result = get_media_duration("/tmp/video.mp4")
+        assert result == 210.5
+
+        cmd = mock_subprocess.run.call_args[0][0]
+        assert cmd[0] == "ffprobe"
+        assert cmd[-1] == "/tmp/video.mp4"
+
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_raises_ffmpeg_error_on_nonzero_exit(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Invalid data"
+        mock_subprocess.run.return_value = mock_result
+
+        with pytest.raises(FFmpegError, match="ffprobe failed"):
+            get_media_duration("/tmp/video.mp4")
+
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_raises_ffmpeg_error_on_invalid_stdout(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "not_a_number"
+        mock_subprocess.run.return_value = mock_result
+
+        with pytest.raises(FFmpegError, match="invalid duration"):
+            get_media_duration("/tmp/video.mp4")
+
+    def test_raises_ffmpeg_not_found(self) -> None:
+        with (
+            patch("youtube_tools_mcp.youtube.downloader.shutil.which", return_value=None),
+            pytest.raises(FFmpegNotFoundError),
+        ):
+            get_media_duration("/tmp/video.mp4")
 
 
 class TestExtractFrame:
