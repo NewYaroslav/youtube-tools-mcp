@@ -150,6 +150,53 @@ def get_video_duration(
     return float(duration)
 
 
+def get_media_duration(
+    path_or_url: str,
+    ffmpeg_timeout: float = 30.0,
+) -> float:
+    """Get media duration in seconds via ffprobe.
+
+    Works for both local file paths and stream URLs.
+
+    Args:
+        path_or_url: Local file path or stream URL.
+        ffmpeg_timeout: Timeout for the ffprobe subprocess in seconds.
+
+    Returns:
+        Duration in seconds.
+    """
+    _check_ffmpeg()
+
+    cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        path_or_url,
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=ffmpeg_timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise FFmpegError(f"ffprobe timed out after {ffmpeg_timeout}s") from exc
+
+    if result.returncode != 0:
+        raise FFmpegError(f"ffprobe failed: {result.stderr.strip()}")
+
+    try:
+        return float(result.stdout.strip())
+    except ValueError as exc:
+        raise FFmpegError(f"ffprobe returned invalid duration: {result.stdout!r}") from exc
+
+
 def extract_frame(
     stream_url: str,
     timestamp: float,

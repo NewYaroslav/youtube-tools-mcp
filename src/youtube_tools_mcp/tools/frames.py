@@ -16,6 +16,7 @@ from youtube_tools_mcp.youtube.downloader import (
     download_video,
     extract_frame,
     extract_frames_batch,
+    get_media_duration,
     get_stream_url,
     get_video_duration,
 )
@@ -43,8 +44,7 @@ def _format_timestamp(seconds: float) -> str:
 
 def _cleanup_dir(path: Path) -> None:
     if path.exists():
-        for f in path.iterdir():
-            f.unlink(missing_ok=True)
+        shutil.rmtree(path, ignore_errors=True)
 
 
 def _analysis_result_text(analyses: list[str], timestamps: list[float], video_id: str) -> TextContent:
@@ -478,9 +478,12 @@ def extract_frames_every(
     video_source, temp_video_dir = _resolve_video_source(video_id, download_first, proxy, cookies_from_browser, client)
     try:
         try:
-            duration = get_video_duration(
-                video_id, proxy=proxy, cookies_from_browser=cookies_from_browser, client=client
-            )
+            if download_first:
+                duration = get_media_duration(video_source, ffmpeg_timeout=ffmpeg_timeout)
+            else:
+                duration = get_video_duration(
+                    video_id, proxy=proxy, cookies_from_browser=cookies_from_browser, client=client
+                )
         except DownloadError as exc:
             raise _err(
                 f"Failed to get video info: {exc}. "

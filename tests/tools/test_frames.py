@@ -18,6 +18,7 @@ from ..conftest import SAMPLE_VIDEO_ID
 
 _STREAM = "youtube_tools_mcp.tools.frames.get_stream_url"
 _DURATION = "youtube_tools_mcp.tools.frames.get_video_duration"
+_MEDIA_DURATION = "youtube_tools_mcp.tools.frames.get_media_duration"
 _DOWNLOAD = "youtube_tools_mcp.tools.frames.download_video"
 _WHICH = "youtube_tools_mcp.youtube.downloader.shutil.which"
 _RUN = "youtube_tools_mcp.youtube.downloader.subprocess.run"
@@ -515,7 +516,7 @@ class TestExtractFramesEvery:
 
         with (
             patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")) as mock_download,
-            patch(_DURATION, return_value=120.0),
+            patch(_MEDIA_DURATION, return_value=120.0),
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
