@@ -259,6 +259,24 @@ class TestListChannelPlaylists:
 
     @patch("youtube_tools_mcp.youtube.listing._youtube_api_get")
     @patch.dict("os.environ", {"YOUTUBE_API_KEY": "test-key"})
+    def test_paginates_partial_page(self, mock_get: MagicMock) -> None:
+        mock_get.side_effect = [
+            {
+                "items": [{"id": "PL1", "snippet": {"title": "P1"}, "contentDetails": {"itemCount": 1}}] * 50,
+                "nextPageToken": "token1",
+            },
+            {
+                "items": [{"id": "PL2", "snippet": {"title": "P2"}, "contentDetails": {"itemCount": 2}}],
+            },
+        ]
+        result = list_channel_playlists("UCxxxxxxxxxxxxxxxxxxxxxx", max_results=51)
+        assert len(result) == 51
+        assert mock_get.call_count == 2
+        assert mock_get.call_args_list[0][0][1]["maxResults"] == "50"
+        assert mock_get.call_args_list[1][0][1]["maxResults"] == "1"
+
+    @patch("youtube_tools_mcp.youtube.listing._youtube_api_get")
+    @patch.dict("os.environ", {"YOUTUBE_API_KEY": "test-key"})
     def test_zero_max_results_raises(self, mock_get: MagicMock) -> None:
         with pytest.raises(ListingError, match="max_results must be >= 1"):
             list_channel_playlists("UCxxxxxxxxxxxxxxxxxxxxxx", max_results=0)
