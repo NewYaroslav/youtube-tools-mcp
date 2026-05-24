@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -156,6 +157,7 @@ def extract_frame(
     max_width: int | None = None,
     quality: int = 5,
     ffmpeg_timeout: float = 60.0,
+    proxy: str | None = None,
 ) -> Path:
     """Extract a single frame from a video stream at the given timestamp.
 
@@ -163,12 +165,13 @@ def extract_frame(
     Requires a direct (progressive) stream URL, not a DASH manifest.
 
     Args:
-        stream_url: Direct video stream URL.
+        stream_url: Direct video stream URL or local file path.
         timestamp: Seek position in seconds.
         output_path: Where to save the JPEG frame.
         max_width: Maximum frame width. None = original size.
         quality: JPEG quality (2=best, 31=worst). Defaults to 5.
         ffmpeg_timeout: Timeout for the ffmpeg subprocess in seconds.
+        proxy: Optional proxy URL to pass to ffmpeg via HTTP_PROXY/HTTPS_PROXY.
     """
     _check_ffmpeg()
 
@@ -185,8 +188,14 @@ def extract_frame(
         cmd.extend(["-vf", f"scale='min({max_width},iw)':-2"])
     cmd.extend(["-q:v", str(quality), "-y", str(output_path)])
 
+    env = None
+    if proxy is not None:
+        env = os.environ.copy()
+        env["HTTP_PROXY"] = proxy
+        env["HTTPS_PROXY"] = proxy
+
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=ffmpeg_timeout)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=ffmpeg_timeout, env=env)
     except subprocess.TimeoutExpired as exc:
         raise FFmpegError(f"ffmpeg timed out after {ffmpeg_timeout}s at timestamp {timestamp}") from exc
 
@@ -206,6 +215,7 @@ def extract_frames_batch(
     max_width: int | None = None,
     quality: int = 5,
     ffmpeg_timeout: float = 60.0,
+    proxy: str | None = None,
 ) -> list[Path]:
     """Extract frames at multiple timestamps from a video stream.
 
@@ -233,6 +243,7 @@ def extract_frames_batch(
             max_width=max_width,
             quality=quality,
             ffmpeg_timeout=ffmpeg_timeout,
+            proxy=proxy,
         )
         paths.append(out_path)
 

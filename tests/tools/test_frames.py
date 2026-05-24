@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from mcp.shared.exceptions import McpError
@@ -17,6 +17,8 @@ from youtube_tools_mcp.youtube.downloader import DownloadError
 from ..conftest import SAMPLE_VIDEO_ID
 
 _STREAM = "youtube_tools_mcp.tools.frames.get_stream_url"
+_DURATION = "youtube_tools_mcp.tools.frames.get_video_duration"
+_DOWNLOAD = "youtube_tools_mcp.tools.frames.download_video"
 _WHICH = "youtube_tools_mcp.youtube.downloader.shutil.which"
 _RUN = "youtube_tools_mcp.youtube.downloader.subprocess.run"
 
@@ -166,6 +168,40 @@ class TestExtractVideoFrame:
 
         mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser=None, client="android")
 
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_download_first_uses_local_file(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")) as mock_download,
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            result = extract_video_frame(SAMPLE_VIDEO_ID, 10.0, download_first=True)
+
+        assert isinstance(result, CallToolResult)
+        mock_download.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert "yt_video_" in cmd[4]
+        assert "video.mp4" in cmd[4]
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_download_first_passes_proxy(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")) as mock_download,
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            extract_video_frame(SAMPLE_VIDEO_ID, 10.0, proxy="http://proxy:8080", download_first=True)
+
+        mock_download.assert_called_once_with(
+            SAMPLE_VIDEO_ID, ANY, proxy="http://proxy:8080", cookies_from_browser=None, client="web"
+        )
+
 
 class TestExtractVideoFrames:
     @patch(_RUN)
@@ -300,6 +336,24 @@ class TestExtractVideoFrames:
 
         mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser=None, client="ios")
 
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_download_first_uses_local_file(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")) as mock_download,
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            result = extract_video_frames(SAMPLE_VIDEO_ID, [0.0, 5.0], download_first=True)
+
+        assert isinstance(result, CallToolResult)
+        mock_download.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert "yt_video_" in cmd[4]
+        assert "video.mp4" in cmd[4]
+
 
 class TestExtractFramesEvery:
     @patch(_RUN)
@@ -385,6 +439,7 @@ class TestExtractFramesEvery:
     def test_video_shorter_than_interval_raises_mcp_error(self) -> None:
         with (
             patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 10.0)),
+            patch(_DURATION, return_value=10.0),
             pytest.raises(McpError, match="shorter than interval"),
         ):
             extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0)
@@ -395,18 +450,20 @@ class TestExtractFramesEvery:
 
     def test_stream_url_error_raises_mcp_error(self) -> None:
         with (
-            patch(_STREAM, side_effect=DownloadError("no info")),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch(_DURATION, side_effect=DownloadError("no info")),
             pytest.raises(McpError, match="Failed to get video info"),
         ):
             extract_frames_every(SAMPLE_VIDEO_ID)
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
-    def test_passes_proxy_to_get_stream_url(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+    def test_passes_proxy(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
             patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)) as mock_stream,
+            patch(_DURATION, return_value=120.0) as mock_duration,
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
@@ -415,31 +472,57 @@ class TestExtractFramesEvery:
         mock_stream.assert_called_once_with(
             SAMPLE_VIDEO_ID, proxy="http://proxy:8080", cookies_from_browser=None, client="web"
         )
+        mock_duration.assert_called_once_with(
+            SAMPLE_VIDEO_ID, proxy="http://proxy:8080", cookies_from_browser=None, client="web"
+        )
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
-    def test_passes_cookies_from_browser_to_get_stream_url(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+    def test_passes_cookies_from_browser(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
             patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)) as mock_stream,
+            patch(_DURATION, return_value=120.0) as mock_duration,
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
             extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, cookies_from_browser="edge")
 
         mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser="edge", client="web")
+        mock_duration.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser="edge", client="web")
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
-    def test_passes_client_to_get_stream_url(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+    def test_passes_client(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
             patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)) as mock_stream,
+            patch(_DURATION, return_value=120.0) as mock_duration,
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
             extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, client="android")
 
         mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser=None, client="android")
+        mock_duration.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser=None, client="android")
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_download_first_uses_local_file(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")) as mock_download,
+            patch(_DURATION, return_value=120.0),
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            result = extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, max_frames=4, download_first=True)
+
+        assert isinstance(result, CallToolResult)
+        mock_download.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert "yt_video_" in cmd[4]
+        assert "video.mp4" in cmd[4]
