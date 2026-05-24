@@ -44,9 +44,7 @@ def _resolve_channel_id_for_api(
 
     handle = resolve_channel_handle(channel_id_or_url)
     if handle is None:
-        raise ChannelListError(
-            f"Cannot extract channel ID or handle from: {channel_id_or_url!r}"
-        ) from None
+        raise ChannelListError(f"Cannot extract channel ID or handle from: {channel_id_or_url!r}") from None
 
     data = _youtube_api_get(
         "channels",
@@ -62,9 +60,7 @@ def _resolve_channel_id_for_api(
         raise ChannelListError(f"Handle @{handle} not found")
     cid = item.get("id")
     if not isinstance(cid, str):
-        raise ChannelListError(
-            f"Handle @{handle} returned no channel ID"
-        ) from None
+        raise ChannelListError(f"Handle @{handle} returned no channel ID") from None
     return cid
 
 
@@ -193,9 +189,7 @@ def list_channel_playlists(
     """
     api_key = os.environ.get("YOUTUBE_API_KEY")
     if not api_key:
-        raise ListingError(
-            "list_channel_playlists requires YOUTUBE_API_KEY. Set it as an environment variable."
-        )
+        raise ListingError("list_channel_playlists requires YOUTUBE_API_KEY. Set it as an environment variable.")
 
     channel_id = _resolve_channel_id_for_api(channel_id_or_url, api_key, proxy=proxy)
     max_results = _clamp_max_results(max_results, max_allowed=500)
@@ -228,9 +222,7 @@ def list_channel_playlists(
             if not page_token or not items:
                 break
     except Exception as exc:
-        raise ChannelListError(
-            f"Failed to fetch playlists for channel {channel_id}: {exc}"
-        ) from exc
+        raise ChannelListError(f"Failed to fetch playlists for channel {channel_id}: {exc}") from exc
 
     result: list[dict[str, Any]] = []
     for item in all_items:
@@ -245,11 +237,7 @@ def list_channel_playlists(
                 "playlist_id": item.get("id"),
                 "title": snippet.get("title"),
                 "description": snippet.get("description"),
-                "video_count": (
-                    content_details.get("itemCount")
-                    if isinstance(content_details, dict)
-                    else None
-                ),
+                "video_count": (content_details.get("itemCount") if isinstance(content_details, dict) else None),
             }
         )
 

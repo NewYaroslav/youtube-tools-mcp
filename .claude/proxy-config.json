@@ -1,0 +1,30 @@
+{
+  "proxies": [
+    {
+      "name": "proxy-1",
+      "url": "http://electroyar30fAmP:fj6W7ntWzj@188.255.196.250:50100",
+      "protocol": "http"
+    },
+    {
+      "name": "proxy-2",
+      "url": "http://electroyar30fAmP:fj6W7ntWzj@45.10.156.1:50100",
+      "protocol": "http"
+    },
+    {
+      "name": "proxy-3",
+      "url": "http://electroyar30fAmP:fj6W7ntWzj@45.153.161.54:50100",
+      "protocol": "http"
+    },
+    {
+      "name": "proxy-4",
+      "url": "http://electroyar30fAmP:fj6W7ntWzj@45.153.162.180:50100",
+      "protocol": "http"
+    },
+    {
+      "name": "proxy-5",
+      "url": "http://electroyar30fAmP:fj6W7ntWzj@45.153.163.90:50100",
+      "protocol": "http"
+    }
+  ],
+  "auto_fallback": true
+}

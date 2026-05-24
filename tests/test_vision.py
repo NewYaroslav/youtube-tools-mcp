@@ -157,3 +157,43 @@ def test_extract_text_supports_list_content() -> None:
 def test_extract_text_rejects_missing_choices() -> None:
     with pytest.raises(VisionAPIError, match="did not include choices"):
         _extract_text({})
+
+
+def test_analyze_image_path_uses_base_url_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    image_path = tmp_path / "frame.jpg"
+    image_path.write_bytes(b"fake-image")
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(request: object, timeout: float) -> _FakeResponse:
+        captured["request"] = request
+        return _FakeResponse({"choices": [{"message": {"content": "Override URL"}}]})
+
+    monkeypatch.setenv("YOUTUBE_TOOLS_VISION_BASE_URL", "http://env.local/v1")
+    monkeypatch.setenv("YOUTUBE_TOOLS_VISION_API_KEY", "env-key")
+    monkeypatch.setenv("YOUTUBE_TOOLS_VISION_MODEL", "env-model")
+    monkeypatch.setattr("youtube_tools_mcp.vision.urllib.request.urlopen", fake_urlopen)
+
+    result = analyze_image_path(image_path, "image/jpeg", base_url="http://override.local/v1")
+
+    assert result == "Override URL"
+    assert captured["request"].full_url == "http://override.local/v1/chat/completions"
+
+
+def test_analyze_image_path_uses_api_key_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    image_path = tmp_path / "frame.jpg"
+    image_path.write_bytes(b"fake-image")
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(request: object, timeout: float) -> _FakeResponse:
+        captured["request"] = request
+        return _FakeResponse({"choices": [{"message": {"content": "Override key"}}]})
+
+    monkeypatch.setenv("YOUTUBE_TOOLS_VISION_BASE_URL", "http://env.local/v1")
+    monkeypatch.setenv("YOUTUBE_TOOLS_VISION_API_KEY", "env-key")
+    monkeypatch.setenv("YOUTUBE_TOOLS_VISION_MODEL", "env-model")
+    monkeypatch.setattr("youtube_tools_mcp.vision.urllib.request.urlopen", fake_urlopen)
+
+    result = analyze_image_path(image_path, "image/jpeg", api_key="override-key")
+
+    assert result == "Override key"
+    assert captured["request"].headers["Authorization"] == "Bearer override-key"

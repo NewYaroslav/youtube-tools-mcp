@@ -80,6 +80,8 @@ Frame parameters:
 
 `vision_analysis=true` cannot be combined with `return_images=true`.
 
+**Security note:** vision tools accept optional per-call `vision_base_url` and `vision_api_key` arguments so you can switch providers without reinstalling the server. Use these for one-off overrides only; passing API keys in tool arguments may leave them in MCP client logs. For regular use, prefer environment variables (e.g. `YOUTUBE_TOOLS_VISION_API_KEY`) set in the MCP client `env` block.
+
 For non-vision models, use saved paths or `vision_analysis=true` instead of reading image files directly.
 
 ## Installation
