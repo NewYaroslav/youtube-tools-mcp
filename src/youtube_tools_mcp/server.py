@@ -179,6 +179,8 @@ def extract_video_frame(
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
     vision_model: str | None = None,
+    vision_base_url: str | None = None,
+    vision_api_key: str | None = None,
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
@@ -201,6 +203,11 @@ def extract_video_frame(
         vision_analysis: True = return text description from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
+        vision_base_url: Optional vision API base URL override.
+            Useful when the default provider (e.g. Aliyun) is blocked or rate-limited.
+            Example: https://api.openai.com/v1
+        vision_api_key: Optional vision API key override.
+            Useful when the default provider is blocked or rate-limited.
         proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
@@ -224,6 +231,8 @@ def extract_video_frame(
         vision_analysis=vision_analysis,
         vision_prompt=vision_prompt,
         vision_model=vision_model,
+        vision_base_url=vision_base_url,
+        vision_api_key=vision_api_key,
         proxy=proxy,
         cookies_from_browser=cookies_from_browser,
         client=client,
@@ -243,6 +252,8 @@ def extract_video_frames(
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
     vision_model: str | None = None,
+    vision_base_url: str | None = None,
+    vision_api_key: str | None = None,
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
@@ -265,6 +276,11 @@ def extract_video_frames(
         vision_analysis: True = return text descriptions from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
+        vision_base_url: Optional vision API base URL override.
+            Useful when the default provider (e.g. Aliyun) is blocked or rate-limited.
+            Example: https://api.openai.com/v1
+        vision_api_key: Optional vision API key override.
+            Useful when the default provider is blocked or rate-limited.
         proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
@@ -288,6 +304,8 @@ def extract_video_frames(
         vision_analysis=vision_analysis,
         vision_prompt=vision_prompt,
         vision_model=vision_model,
+        vision_base_url=vision_base_url,
+        vision_api_key=vision_api_key,
         proxy=proxy,
         cookies_from_browser=cookies_from_browser,
         client=client,
@@ -308,6 +326,8 @@ def extract_frames_every(
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
     vision_model: str | None = None,
+    vision_base_url: str | None = None,
+    vision_api_key: str | None = None,
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
@@ -331,6 +351,11 @@ def extract_frames_every(
         vision_analysis: True = return text descriptions from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
+        vision_base_url: Optional vision API base URL override.
+            Useful when the default provider (e.g. Aliyun) is blocked or rate-limited.
+            Example: https://api.openai.com/v1
+        vision_api_key: Optional vision API key override.
+            Useful when the default provider is blocked or rate-limited.
         proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
@@ -355,6 +380,8 @@ def extract_frames_every(
         vision_analysis=vision_analysis,
         vision_prompt=vision_prompt,
         vision_model=vision_model,
+        vision_base_url=vision_base_url,
+        vision_api_key=vision_api_key,
         proxy=proxy,
         cookies_from_browser=cookies_from_browser,
         client=client,
@@ -368,6 +395,8 @@ def read_image_file(
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
     vision_model: str | None = None,
+    vision_base_url: str | None = None,
+    vision_api_key: str | None = None,
 ) -> CallToolResult:
     """Read a local image file as inline image data or text analysis.
 
@@ -379,20 +408,36 @@ def read_image_file(
         vision_analysis: True = return text description from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
+        vision_base_url: Optional vision API base URL override.
+            Useful when the default provider (e.g. Aliyun) is blocked or rate-limited.
+            Example: https://api.openai.com/v1
+        vision_api_key: Optional vision API key override.
+            Useful when the default provider is blocked or rate-limited.
     """
-    return _read_image_file(path, vision_analysis, vision_prompt, vision_model)
+    return _read_image_file(path, vision_analysis, vision_prompt, vision_model, vision_base_url, vision_api_key)
 
 
 @mcp.tool()
-def analyze_image_file(path: str, prompt: str | None = None, model: str | None = None) -> CallToolResult:
+def analyze_image_file(
+    path: str,
+    prompt: str | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+) -> CallToolResult:
     """Analyze a local image file with a configured vision model and return text.
 
     Args:
         path: Local image file path (.jpg, .jpeg, .png, .gif, .webp).
         prompt: Optional analysis prompt.
         model: Optional vision model override.
+        base_url: Optional vision API base URL override.
+            Useful when the default provider (e.g. Aliyun) is blocked or rate-limited.
+            Example: https://api.openai.com/v1
+        api_key: Optional vision API key override.
+            Useful when the default provider is blocked or rate-limited.
     """
-    return _analyze_image_file(path, prompt, model)
+    return _analyze_image_file(path, prompt, model, base_url, api_key)
 
 
 @mcp.tool()

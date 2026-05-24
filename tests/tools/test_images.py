@@ -52,11 +52,20 @@ class TestReadImageFile:
         image_path = tmp_path / "frame.jpg"
         image_path.write_bytes(b"\xff\xd8fake_jpeg")
 
-        def fake_analyze(path: Path, mime_type: str, prompt: str | None, model: str | None) -> str:
+        def fake_analyze(
+            path: Path,
+            mime_type: str,
+            prompt: str | None,
+            model: str | None,
+            base_url: str | None,
+            api_key: str | None,
+        ) -> str:
             assert path == image_path
             assert mime_type == "image/jpeg"
             assert prompt == "what is here?"
             assert model == "vision-model"
+            assert base_url is None
+            assert api_key is None
             return "A test frame"
 
         monkeypatch.setattr("youtube_tools_mcp.tools.images.analyze_image_path", fake_analyze)
@@ -74,7 +83,7 @@ class TestReadImageFile:
 
         monkeypatch.setattr(
             "youtube_tools_mcp.tools.images.analyze_image_path",
-            lambda path, mime_type, prompt, model: f"{mime_type}: {prompt}: {model}",
+            lambda path, mime_type, prompt, model, base_url=None, api_key=None: f"{mime_type}: {prompt}: {model}",
         )
 
         result = analyze_image_file(str(image_path), prompt="describe", model="vision-model")

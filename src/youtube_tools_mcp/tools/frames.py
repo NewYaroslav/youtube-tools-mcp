@@ -83,9 +83,18 @@ def _get_save_dir(output_dir: str | None, video_id: str) -> Path:
     return save_dir
 
 
-def _analyze_frames(paths: list[Path], vision_prompt: str | None, vision_model: str | None) -> list[str]:
+def _analyze_frames(
+    paths: list[Path],
+    vision_prompt: str | None,
+    vision_model: str | None,
+    vision_base_url: str | None = None,
+    vision_api_key: str | None = None,
+) -> list[str]:
     try:
-        return [analyze_image_path(path, "image/jpeg", vision_prompt, vision_model) for path in paths]
+        return [
+            analyze_image_path(path, "image/jpeg", vision_prompt, vision_model, vision_base_url, vision_api_key)
+            for path in paths
+        ]
     except (VisionConfigError, VisionAPIError) as exc:
         raise _err(str(exc)) from exc
 
@@ -148,6 +157,8 @@ def extract_video_frame(
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
     vision_model: str | None = None,
+    vision_base_url: str | None = None,
+    vision_api_key: str | None = None,
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
@@ -169,6 +180,8 @@ def extract_video_frame(
         vision_analysis: True = return text description from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
+        vision_base_url: Optional vision API base URL override.
+        vision_api_key: Optional vision API key override.
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
         cookies_from_browser: Browser to extract cookies from for YouTube auth.
             Examples: "chrome", "firefox", "edge", "safari".
@@ -206,7 +219,7 @@ def extract_video_frame(
                     ffmpeg_timeout=ffmpeg_timeout,
                     proxy=proxy,
                 )
-                analyses = _analyze_frames([out_path], vision_prompt, vision_model)
+                analyses = _analyze_frames([out_path], vision_prompt, vision_model, vision_base_url, vision_api_key)
                 return CallToolResult(content=[_analysis_result_text(analyses, [timestamp], video_id)])
             except FFmpegNotFoundError as exc:
                 raise _err(str(exc)) from exc
@@ -287,6 +300,8 @@ def extract_video_frames(
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
     vision_model: str | None = None,
+    vision_base_url: str | None = None,
+    vision_api_key: str | None = None,
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
@@ -308,6 +323,8 @@ def extract_video_frames(
         vision_analysis: True = return text descriptions from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
+        vision_base_url: Optional vision API base URL override.
+        vision_api_key: Optional vision API key override.
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
         cookies_from_browser: Browser to extract cookies from for YouTube auth.
             Examples: "chrome", "firefox", "edge", "safari".
@@ -347,7 +364,11 @@ def extract_video_frames(
                 )
                 return CallToolResult(
                     content=[
-                        _analysis_result_text(_analyze_frames(paths, vision_prompt, vision_model), timestamps, video_id)
+                        _analysis_result_text(
+                            _analyze_frames(paths, vision_prompt, vision_model, vision_base_url, vision_api_key),
+                            timestamps,
+                            video_id,
+                        )
                     ]
                 )
             except FFmpegNotFoundError as exc:
@@ -428,6 +449,8 @@ def extract_frames_every(
     vision_analysis: bool = False,
     vision_prompt: str | None = None,
     vision_model: str | None = None,
+    vision_base_url: str | None = None,
+    vision_api_key: str | None = None,
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
@@ -450,6 +473,8 @@ def extract_frames_every(
         vision_analysis: True = return text descriptions from configured vision model.
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
+        vision_base_url: Optional vision API base URL override.
+        vision_api_key: Optional vision API key override.
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
         cookies_from_browser: Browser to extract cookies from for YouTube auth.
             Examples: "chrome", "firefox", "edge", "safari".
@@ -513,7 +538,11 @@ def extract_frames_every(
                 )
                 return CallToolResult(
                     content=[
-                        _analysis_result_text(_analyze_frames(paths, vision_prompt, vision_model), timestamps, video_id)
+                        _analysis_result_text(
+                            _analyze_frames(paths, vision_prompt, vision_model, vision_base_url, vision_api_key),
+                            timestamps,
+                            video_id,
+                        )
                     ]
                 )
             except FFmpegNotFoundError as exc:

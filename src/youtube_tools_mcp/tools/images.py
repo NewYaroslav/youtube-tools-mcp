@@ -36,7 +36,12 @@ def _image_path_and_mime(path: str) -> tuple[Path, str]:
 
 
 def read_image_file(
-    path: str, vision_analysis: bool = False, vision_prompt: str | None = None, vision_model: str | None = None
+    path: str,
+    vision_analysis: bool = False,
+    vision_prompt: str | None = None,
+    vision_model: str | None = None,
+    vision_base_url: str | None = None,
+    vision_api_key: str | None = None,
 ) -> CallToolResult:
     """Read a local image file and return it as MCP ImageContent or text analysis.
 
@@ -45,6 +50,8 @@ def read_image_file(
         vision_analysis: Return text analysis from a configured vision model.
         vision_prompt: Optional prompt for vision analysis.
         vision_model: Optional model override for vision analysis.
+        vision_base_url: Optional vision API base URL override (e.g. https://api.openai.com/v1).
+        vision_api_key: Optional vision API key override.
 
     Returns:
         MCP result containing inline image data or text analysis.
@@ -52,7 +59,9 @@ def read_image_file(
     image_path, mime_type = _image_path_and_mime(path)
     if vision_analysis:
         try:
-            text = analyze_image_path(image_path, mime_type, vision_prompt, vision_model)
+            text = analyze_image_path(
+                image_path, mime_type, vision_prompt, vision_model, vision_base_url, vision_api_key
+            )
         except (VisionConfigError, VisionAPIError) as exc:
             raise _err(str(exc)) from exc
         return CallToolResult(content=[TextContent(type="text", text=text)])
@@ -61,10 +70,25 @@ def read_image_file(
     return CallToolResult(content=[ImageContent(type="image", data=data, mimeType=mime_type)])
 
 
-def analyze_image_file(path: str, prompt: str | None = None, model: str | None = None) -> CallToolResult:
+def analyze_image_file(
+    path: str,
+    prompt: str | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+) -> CallToolResult:
+    """Analyze a local image file with a vision model and return text.
+
+    Args:
+        path: Local image path.
+        prompt: Optional analysis prompt.
+        model: Optional vision model override.
+        base_url: Optional vision API base URL override.
+        api_key: Optional vision API key override.
+    """
     image_path, mime_type = _image_path_and_mime(path)
     try:
-        text = analyze_image_path(image_path, mime_type, prompt, model)
+        text = analyze_image_path(image_path, mime_type, prompt, model, base_url, api_key)
     except (VisionConfigError, VisionAPIError) as exc:
         raise _err(str(exc)) from exc
     return CallToolResult(content=[TextContent(type="text", text=text)])

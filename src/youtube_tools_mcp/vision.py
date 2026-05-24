@@ -42,8 +42,8 @@ def _env(name: str) -> str | None:
     return os.environ.get(name)
 
 
-def _base_url() -> str:
-    url = _env("YOUTUBE_TOOLS_VISION_BASE_URL") or _env("OPENAI_BASE_URL")
+def _base_url(override: str | None = None) -> str:
+    url = override or _env("YOUTUBE_TOOLS_VISION_BASE_URL") or _env("OPENAI_BASE_URL")
     if not url:
         anthropic_base = _env("ANTHROPIC_BASE_URL")
         if anthropic_base:
@@ -57,8 +57,8 @@ def _base_url() -> str:
     return url
 
 
-def _api_key() -> str:
-    key = _env("YOUTUBE_TOOLS_VISION_API_KEY") or _env("OPENAI_API_KEY")
+def _api_key(override: str | None = None) -> str:
+    key = override or _env("YOUTUBE_TOOLS_VISION_API_KEY") or _env("OPENAI_API_KEY")
     if not key:
         raise VisionConfigError("Vision API key is not configured")
     return key
@@ -96,7 +96,14 @@ def _max_tokens() -> int:
     return max(_MIN_MAX_TOKENS, min(_MAX_MAX_TOKENS, value))
 
 
-def analyze_image_path(path: Path, mime_type: str, prompt: str | None = None, model: str | None = None) -> str:
+def analyze_image_path(
+    path: Path,
+    mime_type: str,
+    prompt: str | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+) -> str:
     data = base64.b64encode(path.read_bytes()).decode()
     payload = {
         "model": _model(model),
@@ -112,9 +119,9 @@ def analyze_image_path(path: Path, mime_type: str, prompt: str | None = None, mo
         ],
     }
     request = urllib.request.Request(
-        _base_url() + "/chat/completions",
+        _base_url(base_url) + "/chat/completions",
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Authorization": f"Bearer {_api_key()}", "Content-Type": "application/json"},
+        headers={"Authorization": f"Bearer {_api_key(api_key)}", "Content-Type": "application/json"},
         method="POST",
     )
 
