@@ -188,7 +188,7 @@ def list_channel_playlists(
 
     Args:
         channel_id_or_url: Channel URL, handle (@name), or raw channel ID (UC...).
-        max_results: Maximum number of playlists to return (1..50).
+        max_results: Maximum number of playlists to return (1..500). Defaults to 50.
         proxy: Optional proxy URL override.
     """
     api_key = os.environ.get("YOUTUBE_API_KEY")
