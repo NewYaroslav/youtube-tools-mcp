@@ -46,9 +46,7 @@ def _apply_client_options(ydl_opts: dict, client: str) -> None:
         ydl_opts.setdefault("extractor_args", {})
         ydl_opts["extractor_args"]["youtube"] = {"player_client": "tv_embedded"}
     elif client != "web":
-        raise DownloadError(
-            f"Unknown client {client!r}. Choose from: web, android, ios, tv_embedded."
-        )
+        raise DownloadError(f"Unknown client {client!r}. Choose from: web, android, ios, tv_embedded.")
 
 
 def _check_ffmpeg() -> None:

@@ -32,6 +32,9 @@ Designed for Claude Code, VSCodium, and any MCP-compatible agent.
 | `analyze_image_file` | Analyze a local image with a configured vision model |
 | `download_video` | Download a YouTube video (best, 720p, 480p, 360p) |
 | `download_audio` | Download audio only (mp3, m4a, opus, wav) |
+| `list_playlist_videos` | List videos inside a YouTube playlist |
+| `list_channel_videos` | List upload videos from a YouTube channel |
+| `list_channel_playlists` | List playlists owned by a YouTube channel |
 
 ## Metadata and context
 
@@ -190,6 +193,24 @@ claude mcp add --scope user \
   -e YOUTUBE_TOOLS_VISION_MAX_TOKENS=1024 \
   -- youtube-tools uvx --from git+https://github.com/NewYaroslav/youtube-tools-mcp youtube-tools-mcp
 ```
+
+## Channel and playlist listing
+
+- `list_playlist_videos` accepts a playlist URL or raw playlist ID and returns a JSON list of videos with `video_id`, `title`, `url`, `duration`, and `position`.
+- `list_channel_videos` accepts a channel URL, handle (`@name`), or raw channel ID (`UC...`) and returns upload videos in the same shape.
+- `list_channel_playlists` accepts a channel URL, handle (`@name`), or raw channel ID (`UC...`) and requires `YOUTUBE_API_KEY`. Returns playlists with `playlist_id`, `title`, `description`, and `video_count`.
+
+Listing parameters:
+
+| Tool | `max_results` range | Default |
+|---|---|---|
+| `list_playlist_videos` | 1..500 | 50 |
+| `list_channel_videos` | 1..500 | 50 |
+| `list_channel_playlists` | 1..50 | 50 |
+
+`proxy`, `cookies_from_browser`, and `client` pass through to yt-dlp the same way as other yt-dlp-based tools.
+
+Note: ordering and completeness of `list_playlist_videos` and `list_channel_videos` depend on YouTube page structure and yt-dlp flat extraction.
 
 ## System Requirements
 

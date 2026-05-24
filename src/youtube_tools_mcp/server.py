@@ -19,8 +19,21 @@ from youtube_tools_mcp.tools.frames import (
 from youtube_tools_mcp.tools.frames import (
     extract_video_frames as _extract_video_frames,
 )
-from youtube_tools_mcp.tools.images import analyze_image_file as _analyze_image_file
-from youtube_tools_mcp.tools.images import read_image_file as _read_image_file
+from youtube_tools_mcp.tools.images import (
+    analyze_image_file as _analyze_image_file,
+)
+from youtube_tools_mcp.tools.images import (
+    read_image_file as _read_image_file,
+)
+from youtube_tools_mcp.tools.listing import (
+    list_channel_playlists as _list_channel_playlists,
+)
+from youtube_tools_mcp.tools.listing import (
+    list_channel_videos as _list_channel_videos,
+)
+from youtube_tools_mcp.tools.listing import (
+    list_playlist_videos as _list_playlist_videos,
+)
 from youtube_tools_mcp.tools.metadata import get_youtube_video_metadata as _get_youtube_video_metadata
 from youtube_tools_mcp.tools.transcript import get_youtube_transcript as _get_youtube_transcript
 from youtube_tools_mcp.tools.video_context import get_youtube_video_context as _get_youtube_video_context
@@ -421,6 +434,87 @@ def download_audio(
             YouTube blocks with bot-check. Defaults to "web".
     """
     return _download_audio_file(url_or_id, output_dir, audio_format, proxy, cookies_from_browser, client)
+
+
+@mcp.tool()
+def list_playlist_videos(
+    playlist_id_or_url: str,
+    max_results: int = 50,
+    proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
+) -> str:
+    """List videos inside a YouTube playlist.
+
+    Args:
+        playlist_id_or_url: YouTube playlist URL or raw playlist ID.
+        max_results: Maximum number of videos to return. Defaults to 50.
+        proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
+            with bot-check, captcha, sign-in, or anti-abuse messages.
+            Example: http://user:pass@host:port.
+        cookies_from_browser: Browser to extract cookies from for YouTube auth.
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
+    """
+    return _list_playlist_videos(
+        playlist_id_or_url,
+        max_results,
+        proxy,
+        cookies_from_browser,
+        client,
+    )
+
+
+@mcp.tool()
+def list_channel_videos(
+    channel_id_or_url: str,
+    max_results: int = 50,
+    proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
+) -> str:
+    """List upload videos from a YouTube channel.
+
+    Args:
+        channel_id_or_url: Channel URL, handle (@name), or raw channel ID (UC...).
+        max_results: Maximum number of videos to return. Defaults to 50.
+        proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
+            with bot-check, captcha, sign-in, or anti-abuse messages.
+            Example: http://user:pass@host:port.
+        cookies_from_browser: Browser to extract cookies from for YouTube auth.
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
+    """
+    return _list_channel_videos(
+        channel_id_or_url,
+        max_results,
+        proxy,
+        cookies_from_browser,
+        client,
+    )
+
+
+@mcp.tool()
+def list_channel_playlists(
+    channel_id_or_url: str,
+    max_results: int = 50,
+    proxy: str | None = None,
+) -> str:
+    """List playlists owned by a YouTube channel.
+
+    Requires YOUTUBE_API_KEY environment variable.
+
+    Args:
+        channel_id_or_url: Channel URL, handle (@name), or raw channel ID (UC...).
+        max_results: Maximum number of playlists to return (1..500). Defaults to 50.
+        proxy: Proxy URL for YouTube requests.
+            Example: http://user:pass@host:port.
+    """
+    return _list_channel_playlists(channel_id_or_url, max_results, proxy)
 
 
 def main() -> None:
