@@ -8,7 +8,7 @@ _WATCH_URL_PATTERN = re.compile(r"(?:www\.)?youtube\.com/watch\?v=([a-zA-Z0-9_-]
 _SHORT_URL_PATTERN = re.compile(r"youtu\.be/([a-zA-Z0-9_-]{11})")
 _EMBED_URL_PATTERN = re.compile(r"(?:www\.)?youtube\.com/embed/([a-zA-Z0-9_-]{11})")
 
-_PLAYLIST_ID_PATTERN = re.compile(r"^[A-Z]{2}[A-Za-z0-9_-]+$")
+_PLAYLIST_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{10,}$")
 _PLAYLIST_URL_PATTERN = re.compile(r"(?:www\.)?youtube\.com/playlist\?list=([A-Za-z0-9_-]+)")
 
 _CHANNEL_ID_PATTERN = re.compile(r"^UC[A-Za-z0-9_-]{22}$")

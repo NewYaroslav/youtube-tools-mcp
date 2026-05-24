@@ -22,8 +22,8 @@ class PlaylistNotFoundError(ListingError):
     """Playlist not found or empty."""
 
 
-class ChannelNotFoundError(ListingError):
-    """Channel not found or has no videos."""
+class ChannelListError(ListingError):
+    """Channel-related listing failed: not found, has no content, or API error."""
 
 
 def _clamp_max_results(value: int, *, max_allowed: int) -> int:
@@ -44,7 +44,7 @@ def _resolve_channel_id_for_api(
 
     handle = resolve_channel_handle(channel_id_or_url)
     if handle is None:
-        raise ChannelNotFoundError(
+        raise ChannelListError(
             f"Cannot extract channel ID or handle from: {channel_id_or_url!r}"
         ) from None
 
@@ -59,10 +59,10 @@ def _resolve_channel_id_for_api(
     )
     item = _first_item(data)
     if item is None:
-        raise ChannelNotFoundError(f"Handle @{handle} not found")
+        raise ChannelListError(f"Handle @{handle} not found")
     cid = item.get("id")
     if not isinstance(cid, str):
-        raise ChannelNotFoundError(
+        raise ChannelListError(
             f"Handle @{handle} returned no channel ID"
         ) from None
     return cid
@@ -172,7 +172,7 @@ def list_channel_videos(
     entries = _extract_entries_ytdlp(url, max_results, proxy, cookies_from_browser, client)
 
     if not entries:
-        raise ChannelNotFoundError(f"Channel {channel_id_or_url} not found or has no videos")
+        raise ChannelListError(f"Channel {channel_id_or_url} not found or has no videos")
 
     return [_entry_to_video_dict(e, i + 1) for i, e in enumerate(entries)]
 
@@ -198,30 +198,42 @@ def list_channel_playlists(
         )
 
     channel_id = _resolve_channel_id_for_api(channel_id_or_url, api_key, proxy=proxy)
-    max_results = _clamp_max_results(max_results, max_allowed=50)
+    max_results = _clamp_max_results(max_results, max_allowed=500)
+
+    all_items: list[dict[str, Any]] = []
+    page_token: str | None = None
+    remaining = max_results
 
     try:
-        data = _youtube_api_get(
-            "playlists",
-            {
+        while remaining > 0:
+            page_size = min(50, remaining)
+            params: dict[str, str] = {
                 "part": "snippet,contentDetails",
                 "channelId": channel_id,
-                "maxResults": str(max_results),
+                "maxResults": str(page_size),
                 "key": api_key,
-            },
-            proxy=proxy,
-        )
+            }
+            if page_token:
+                params["pageToken"] = page_token
+
+            data = _youtube_api_get("playlists", params, proxy=proxy)
+            items = data.get("items")
+            if not isinstance(items, list):
+                break
+
+            all_items.extend(items)
+            remaining -= len(items)
+
+            page_token = data.get("nextPageToken")
+            if not page_token or not items:
+                break
     except Exception as exc:
-        raise ChannelNotFoundError(
+        raise ChannelListError(
             f"Failed to fetch playlists for channel {channel_id}: {exc}"
         ) from exc
 
-    items = data.get("items")
-    if not isinstance(items, list):
-        return []
-
     result: list[dict[str, Any]] = []
-    for item in items:
+    for item in all_items:
         if not isinstance(item, dict):
             continue
         snippet = item.get("snippet")
@@ -233,7 +245,11 @@ def list_channel_playlists(
                 "playlist_id": item.get("id"),
                 "title": snippet.get("title"),
                 "description": snippet.get("description"),
-                "video_count": (content_details.get("itemCount") if isinstance(content_details, dict) else None),
+                "video_count": (
+                    content_details.get("itemCount")
+                    if isinstance(content_details, dict)
+                    else None
+                ),
             }
         )
 

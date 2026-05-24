@@ -16,7 +16,7 @@ class TestListPlaylistVideosTool:
     @patch("youtube_tools_mcp.tools.listing.list_playlist_videos")
     def test_returns_json(self, mock_list: MagicMock) -> None:
         mock_list.return_value = [{"video_id": "v1", "title": "Vid"}]
-        result = list_playlist_videos_tool("PLtest", max_results=1)
+        result = list_playlist_videos_tool("PLtest1234", max_results=1)
         assert '"video_id": "v1"' in result
 
     @patch("youtube_tools_mcp.tools.listing.list_playlist_videos")
@@ -29,14 +29,14 @@ class TestListPlaylistVideosTool:
     def test_passes_parameters(self, mock_list: MagicMock) -> None:
         mock_list.return_value = []
         list_playlist_videos_tool(
-            "PLtest",
+            "PLtest1234",
             max_results=5,
             proxy="http://p:8080",
             cookies_from_browser="chrome",
             client="android",
         )
         mock_list.assert_called_once_with(
-            "PLtest",
+            "PLtest1234",
             max_results=5,
             proxy="http://p:8080",
             cookies_from_browser="chrome",

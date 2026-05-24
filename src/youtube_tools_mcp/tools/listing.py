@@ -6,7 +6,7 @@ from mcp.shared.exceptions import McpError
 from mcp.types import INTERNAL_ERROR, ErrorData
 
 from youtube_tools_mcp.youtube.listing import (
-    ChannelNotFoundError,
+    ChannelListError,
     ListingError,
     PlaylistNotFoundError,
     list_channel_playlists,
@@ -55,7 +55,7 @@ def list_channel_videos_tool(
             client=client,
         )
         return json.dumps(videos, ensure_ascii=False, indent=2)
-    except (ChannelNotFoundError, ListingError, ValueError) as exc:
+    except (ChannelListError, ListingError, ValueError) as exc:
         raise _err(str(exc)) from exc
 
 
@@ -71,5 +71,5 @@ def list_channel_playlists_tool(
             proxy=proxy,
         )
         return json.dumps(playlists, ensure_ascii=False, indent=2)
-    except (ChannelNotFoundError, ListingError, ValueError) as exc:
+    except (ChannelListError, ListingError, ValueError) as exc:
         raise _err(str(exc)) from exc
