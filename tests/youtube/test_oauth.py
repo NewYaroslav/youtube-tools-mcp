@@ -9,11 +9,12 @@ import pytest
 
 from youtube_tools_mcp.youtube.oauth import (
     OAuthError,
+    _find_free_port,
     _load_token_data,
     _save_token_data,
     get_access_token,
     refresh_access_token,
-    run_device_flow,
+    run_authorization_flow,
 )
 
 
@@ -50,6 +51,13 @@ class TestLoadSaveTokenData:
             _save_token_data(data)
             loaded = _load_token_data()
         assert loaded == data
+
+
+class TestFindFreePort:
+    def test_returns_port(self):
+        port = _find_free_port(50000)
+        assert isinstance(port, int)
+        assert port >= 50000
 
 
 class TestGetAccessToken:
@@ -134,18 +142,9 @@ class TestRefreshAccessToken:
             refresh_access_token("rt", "cid", "cs")
 
 
-class TestRunDeviceFlow:
+class TestRunAuthorizationFlow:
     def test_success(self, tmp_path: Path, capsys):
         token_file = tmp_path / "oauth.json"
-        device_resp = MockResponse(
-            {
-                "device_code": "dc",
-                "user_code": "uc",
-                "verification_url": "http://verify",
-                "expires_in": 600,
-                "interval": 1,
-            }
-        )
         token_resp = MockResponse(
             {
                 "refresh_token": "rt",
@@ -153,130 +152,60 @@ class TestRunDeviceFlow:
                 "expires_in": 3600,
             }
         )
-        call_iter = iter([device_resp, token_resp])
+
+        def _handle_request(req, **kw):
+            return token_resp
 
         with (
             patch("youtube_tools_mcp.youtube.oauth._TOKEN_FILE", token_file),
-            patch("urllib.request.urlopen", side_effect=lambda req, **kw: next(call_iter)),
-            patch("time.sleep"),
-            patch("time.time", side_effect=[0, 10, 20]),
+            patch("youtube_tools_mcp.youtube.oauth._find_free_port", return_value=65000),
+            patch(
+                "youtube_tools_mcp.youtube.oauth._wait_for_callback",
+                return_value={"code": "authcode", "state": "test_state", "error": None},
+            ),
+            patch("secrets.token_urlsafe", return_value="test_state"),
+            patch("urllib.request.urlopen", side_effect=_handle_request),
         ):
-            run_device_flow("cid", "cs")
+            run_authorization_flow("cid", "cs")
 
         captured = capsys.readouterr()
-        assert "http://verify" in captured.out
-        assert "uc" in captured.out
-        assert "successful" in captured.out
+        assert "accounts.google.com" in captured.out
+        assert "Waiting for authorization" in captured.out
 
         data = json.loads(token_file.read_text(encoding="utf-8"))
         assert data is not None
         assert data["refresh_token"] == "rt"
         assert data["access_token"] == "at"
 
-    def test_authorization_pending(self, tmp_path: Path, capsys):
+    def test_no_code_received(self, tmp_path: Path):
         token_file = tmp_path / "oauth.json"
-        device_resp = MockResponse(
-            {
-                "device_code": "dc",
-                "user_code": "uc",
-                "verification_url": "http://verify",
-                "expires_in": 600,
-                "interval": 1,
-            }
-        )
-        pending_resp = MockResponse({"error": "authorization_pending"})
-        token_resp = MockResponse(
-            {
-                "refresh_token": "rt",
-                "access_token": "at",
-                "expires_in": 3600,
-            }
-        )
-        call_iter = iter([device_resp, pending_resp, token_resp])
 
         with (
             patch("youtube_tools_mcp.youtube.oauth._TOKEN_FILE", token_file),
-            patch("urllib.request.urlopen", side_effect=lambda req, **kw: next(call_iter)),
-            patch("time.sleep"),
-            patch("time.time", side_effect=[0, 10, 20, 30]),
+            patch("youtube_tools_mcp.youtube.oauth._find_free_port", return_value=65001),
+            patch(
+                "youtube_tools_mcp.youtube.oauth._wait_for_callback",
+                return_value={"code": None, "state": None, "error": "access_denied"},
+            ),
+            patch("secrets.token_urlsafe", return_value="test_state"),
+            pytest.raises(OAuthError, match="access_denied"),
         ):
-            run_device_flow("cid", "cs")
+            run_authorization_flow("cid", "cs")
 
-        data = json.loads(token_file.read_text(encoding="utf-8"))
-        assert data is not None
-        assert data["refresh_token"] == "rt"
-
-    def test_expired_device_code(self, tmp_path: Path):
+    def test_state_mismatch(self, tmp_path: Path):
         token_file = tmp_path / "oauth.json"
-        device_resp = MockResponse(
-            {
-                "device_code": "dc",
-                "user_code": "uc",
-                "verification_url": "http://verify",
-                "expires_in": 1,
-                "interval": 1,
-            }
-        )
-        call_iter = iter([device_resp])
 
         with (
             patch("youtube_tools_mcp.youtube.oauth._TOKEN_FILE", token_file),
-            patch("urllib.request.urlopen", side_effect=lambda req, **kw: next(call_iter)),
-            patch("time.sleep"),
-            patch("time.time", side_effect=[0, 2]),
-            pytest.raises(OAuthError, match="expired"),
+            patch("youtube_tools_mcp.youtube.oauth._find_free_port", return_value=65002),
+            patch(
+                "youtube_tools_mcp.youtube.oauth._wait_for_callback",
+                return_value={"code": "validcode", "state": "wrong_state", "error": None},
+            ),
+            patch("secrets.token_urlsafe", return_value="expected_state"),
+            pytest.raises(OAuthError, match="Invalid state"),
         ):
-            run_device_flow("cid", "cs")
-
-    def test_invalid_device_response(self):
-        bad_resp = MockResponse({"incomplete": True})
-
-        with patch("urllib.request.urlopen", return_value=bad_resp), pytest.raises(
-            OAuthError, match="Invalid device code"
-        ):
-            run_device_flow("cid", "cs")
-
-    def test_oauth_error(self):
-        device_resp = MockResponse(
-            {
-                "device_code": "dc",
-                "user_code": "uc",
-                "verification_url": "http://verify",
-                "expires_in": 600,
-                "interval": 1,
-            }
-        )
-        error_resp = MockResponse({"error": "access_denied", "error_description": "User denied"})
-        call_iter = iter([device_resp, error_resp])
-
-        with (
-            patch("urllib.request.urlopen", side_effect=lambda req, **kw: next(call_iter)),
-            patch("time.sleep"),
-            patch("time.time", side_effect=[0, 10]),
-            pytest.raises(OAuthError, match="User denied"),
-        ):
-            run_device_flow("cid", "cs")
-
-    def test_missing_refresh_token(self):
-        device_resp = MockResponse(
-            {
-                "device_code": "dc",
-                "user_code": "uc",
-                "verification_url": "http://verify",
-                "expires_in": 600,
-                "interval": 1,
-            }
-        )
-        token_resp = MockResponse({"access_token": "at"})  # no refresh_token
-        call_iter = iter([device_resp, token_resp])
-
-        with (
-            patch("urllib.request.urlopen", side_effect=lambda req, **kw: next(call_iter)),
-            patch("time.sleep"),
-            patch("time.time", side_effect=[0, 10]),
-            pytest.raises(OAuthError, match="No refresh token"),
-        ):
-            run_device_flow("cid", "cs")
+            run_authorization_flow("cid", "cs")
 
 
 class TestMain:

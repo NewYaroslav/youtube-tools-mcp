@@ -120,7 +120,9 @@ class TestTranscriptFetcher:
         mock_api.fetch.side_effect = CouldNotRetrieveTranscript("retrieve error")
 
         fetcher = TranscriptFetcher()
-        with pytest.raises(TranscriptFetchError):
+        with patch(
+            "youtube_tools_mcp.youtube.captions.get_access_token", return_value=None
+        ), pytest.raises(TranscriptFetchError):
             fetcher.fetch(SAMPLE_VIDEO_ID)
 
     @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
@@ -129,7 +131,9 @@ class TestTranscriptFetcher:
         mock_api.fetch.side_effect = RuntimeError("unexpected")
 
         fetcher = TranscriptFetcher()
-        with pytest.raises(TranscriptFetchError, match="Unexpected error"):
+        with patch(
+            "youtube_tools_mcp.youtube.captions.get_access_token", return_value=None
+        ), pytest.raises(TranscriptFetchError, match="Unexpected error"):
             fetcher.fetch(SAMPLE_VIDEO_ID)
 
     @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")

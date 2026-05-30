@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import secrets
+import socket
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import webbrowser
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -21,8 +26,9 @@ class OAuthCredentialsNotFoundError(OAuthError):
 _TOKEN_DIR = Path.home() / ".config" / "youtube-tools-mcp"
 _TOKEN_FILE = _TOKEN_DIR / "oauth.json"
 _OAUTH_SCOPE = "https://www.googleapis.com/auth/youtube.force-ssl"
-_DEVICE_CODE_URL = "https://oauth2.googleapis.com/device/code"
+_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 _TOKEN_URL = "https://oauth2.googleapis.com/token"
+_DEFAULT_PORT = 8085
 
 
 def _ensure_token_dir() -> None:
@@ -45,6 +51,14 @@ def _save_token_data(data: dict[str, Any]) -> None:
         json.dump(data, fh, indent=2)
 
 
+def _find_free_port(start: int = _DEFAULT_PORT) -> int:
+    for port in range(start, start + 100):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(("127.0.0.1", port)) != 0:
+                return port
+    raise OAuthError("No free localhost port found")
+
+
 def _post_form(url: str, params: dict[str, str]) -> dict[str, Any]:
     data = urllib.parse.urlencode(params).encode("utf-8")
     req = urllib.request.Request(url, data=data, method="POST")
@@ -63,74 +77,115 @@ def _post_form(url: str, params: dict[str, str]) -> dict[str, Any]:
         raise OAuthError("Invalid JSON response") from exc
 
 
-def run_device_flow(client_id: str, client_secret: str) -> None:
-    """Run OAuth 2.0 device code flow and save refresh token."""
-    device_resp = _post_form(
-        _DEVICE_CODE_URL,
+def _exchange_code_for_token(
+    code: str, redirect_uri: str, client_id: str, client_secret: str
+) -> dict[str, Any]:
+    return _post_form(
+        _TOKEN_URL,
         {
             "client_id": client_id,
-            "scope": _OAUTH_SCOPE,
+            "client_secret": client_secret,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
         },
     )
 
-    device_code = device_resp.get("device_code")
-    user_code = device_resp.get("user_code")
-    verification_url = device_resp.get("verification_url") or device_resp.get("verification_uri")
-    expires_in = device_resp.get("expires_in", 1800)
-    interval = device_resp.get("interval", 5)
 
-    if not all([device_code, user_code, verification_url]):
-        raise OAuthError("Invalid device code response")
+class _CallbackHandler(BaseHTTPRequestHandler):
+    def log_message(self, _format: str, *_args: Any) -> None:  # noqa: ANN401
+        pass
 
-    print(f"\nOpen this URL in your browser: {verification_url}")
-    print(f"Enter this code: {user_code}\n")
+    def do_GET(self) -> None:
+        parsed = urllib.parse.urlparse(self.path)
+        query = urllib.parse.parse_qs(parsed.query)
 
-    start_time = time.time()
+        result = {
+            "code": query.get("code", [None])[0],
+            "state": query.get("state", [None])[0],
+            "error": query.get("error_description", [None])[0]
+            or query.get("error", [None])[0],
+        }
+        self.server._oauth_result = result
 
-    while time.time() - start_time < expires_in:
-        time.sleep(interval)
+        self.send_response(200)
+        self.send_header("Content-type", "text/html; charset=utf-8")
+        self.end_headers()
 
-        token_resp = _post_form(
-            _TOKEN_URL,
-            {
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "device_code": str(device_code),
-                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-            },
-        )
-
-        if token_resp.get("error") == "authorization_pending":
-            continue
-        if token_resp.get("error") == "slow_down":
-            interval += 5
-            continue
-        if "error" in token_resp:
-            raise OAuthError(
-                f"OAuth error: {token_resp.get('error_description', token_resp['error'])}"
+        if result["code"]:
+            body = (
+                "<h1>Authorization successful</h1>"
+                "<p>You can close this window and return to the terminal.</p>"
             )
+        else:
+            err = result["error"] or "Unknown error"
+            body = f"<h1>Authorization failed</h1><p>{err}</p>"
+        self.wfile.write(body.encode("utf-8"))
 
-        refresh_token = token_resp.get("refresh_token")
-        access_token = token_resp.get("access_token")
-        expires_in_token = token_resp.get("expires_in", 3600)
 
-        if not refresh_token:
-            raise OAuthError("No refresh token received")
+def _wait_for_callback(port: int, timeout: float = 300.0) -> dict[str, str | None]:
+    """Start a temporary HTTP server and wait for the OAuth callback."""
+    server = HTTPServer(("127.0.0.1", port), _CallbackHandler)
+    server.timeout = timeout
+    server._oauth_result = {"code": None, "state": None, "error": None}
+    server.handle_request()
+    return server._oauth_result  # type: ignore[return-value]
 
-        _save_token_data(
-            {
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "refresh_token": refresh_token,
-                "access_token": access_token,
-                "expires_at": time.time() + expires_in_token,
-            }
-        )
 
-        print("OAuth authorization successful. Token saved.")
-        return
+def run_authorization_flow(client_id: str, client_secret: str) -> None:
+    """Run OAuth 2.0 authorization code flow with localhost callback."""
+    port = _find_free_port()
+    redirect_uri = f"http://127.0.0.1:{port}"
+    state = secrets.token_urlsafe(16)
 
-    raise OAuthError("Device code expired before authorization")
+    auth_params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "scope": _OAUTH_SCOPE,
+        "response_type": "code",
+        "access_type": "offline",
+        "state": state,
+    }
+    auth_url = f"{_AUTH_URL}?{urllib.parse.urlencode(auth_params)}"
+
+    print(f"\nOpen this URL in your browser:\n{auth_url}\n")
+
+    with contextlib.suppress(Exception):
+        webbrowser.open(auth_url)
+
+    print(f"Waiting for authorization callback on {redirect_uri} ...")
+    result = _wait_for_callback(port)
+
+    code = result.get("code")
+    received_state = result.get("state")
+    error_desc = result.get("error")
+
+    if code is None:
+        raise OAuthError(f"Authorization failed: {error_desc or 'no code received'}")
+
+    if received_state != state:
+        raise OAuthError("Invalid state parameter — possible CSRF attack")
+
+    token_resp = _exchange_code_for_token(code, redirect_uri, client_id, client_secret)
+
+    refresh_token = token_resp.get("refresh_token")
+    access_token = token_resp.get("access_token")
+    expires_in = token_resp.get("expires_in", 3600)
+
+    if not refresh_token:
+        raise OAuthError("No refresh token received")
+
+    _save_token_data(
+        {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
+            "access_token": access_token,
+            "expires_at": time.time() + expires_in,
+        }
+    )
+
+    print("OAuth authorization successful. Token saved.")
 
 
 def refresh_access_token(refresh_token: str, client_id: str, client_secret: str) -> tuple[str, int]:
@@ -200,7 +255,7 @@ def main() -> None:
         raise SystemExit(1)
 
     try:
-        run_device_flow(client_id, client_secret)
+        run_authorization_flow(client_id, client_secret)
     except OAuthError as exc:
         print(f"OAuth failed: {exc}")
         raise SystemExit(1) from exc
