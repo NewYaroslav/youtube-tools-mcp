@@ -6,6 +6,7 @@ from urllib.parse import parse_qs, urlparse
 _VIDEO_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{11}$")
 _WATCH_URL_PATTERN = re.compile(r"(?:www\.)?youtube\.com/watch\?v=([a-zA-Z0-9_-]{11})")
 _SHORT_URL_PATTERN = re.compile(r"youtu\.be/([a-zA-Z0-9_-]{11})")
+_SHORTS_URL_PATTERN = re.compile(r"(?:www\.)?youtube\.com/shorts/([a-zA-Z0-9_-]{11})")
 _EMBED_URL_PATTERN = re.compile(r"(?:www\.)?youtube\.com/embed/([a-zA-Z0-9_-]{11})")
 
 _PLAYLIST_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{10,}$")
@@ -24,7 +25,7 @@ def extract_video_id(url_or_id: str) -> str:
     if _VIDEO_ID_PATTERN.match(stripped):
         return stripped
 
-    for pattern in (_WATCH_URL_PATTERN, _SHORT_URL_PATTERN, _EMBED_URL_PATTERN):
+    for pattern in (_WATCH_URL_PATTERN, _SHORT_URL_PATTERN, _SHORTS_URL_PATTERN, _EMBED_URL_PATTERN):
         match = pattern.search(stripped)
         if match:
             return match.group(1)
@@ -36,6 +37,12 @@ def extract_video_id(url_or_id: str) -> str:
             return path_id
 
     if "youtube.com" in parsed.netloc:
+        path_parts = parsed.path.strip("/").split("/")
+        if len(path_parts) >= 2 and path_parts[0] == "shorts":
+            vid = path_parts[1]
+            if _VIDEO_ID_PATTERN.match(vid):
+                return vid
+
         query = parse_qs(parsed.query)
         if "v" in query:
             vid = query["v"][0]
