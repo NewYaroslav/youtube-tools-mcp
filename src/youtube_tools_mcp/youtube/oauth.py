@@ -53,16 +53,16 @@ def _save_token_data(data: dict[str, Any]) -> None:
         os.chmod(_TOKEN_FILE, 0o600)
 
 
-def _find_port(start: int = _DEFAULT_PORT) -> int:
-    """Find an available port starting from *start*."""
-    for port in range(start, start + 100):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(("127.0.0.1", port)) != 0:
-                return port
-    raise OAuthError(
-        f"Could not find a free port in range {start}-{start + 99}. "
-        "Make sure no other process is blocking the range and try again."
-    )
+def _ensure_port_free(port: int = _DEFAULT_PORT) -> int:
+    """Verify the default OAuth callback port is available."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        if s.connect_ex(("127.0.0.1", port)) == 0:
+            raise OAuthError(
+                f"Port {port} is already in use. "
+                "Stop the other process or add http://127.0.0.1:{port} "
+                "as an additional Authorized redirect URI in Google Cloud Console."
+            )
+    return port
 
 
 def _post_form(url: str, params: dict[str, str]) -> dict[str, Any]:
@@ -144,7 +144,7 @@ def _wait_for_callback(port: int, timeout: float = 300.0) -> dict[str, str | Non
 
 def run_authorization_flow(client_id: str, client_secret: str) -> None:
     """Run OAuth 2.0 authorization code flow with localhost callback."""
-    port = _find_port()
+    port = _ensure_port_free()
     redirect_uri = f"http://127.0.0.1:{port}"
     state = secrets.token_urlsafe(16)
 

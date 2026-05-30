@@ -111,12 +111,9 @@ def download_caption_track(
     proxy: str | None = None,
 ) -> str:
     """Download a caption track as SRT."""
-    params = {
-        "id": caption_id,
-        "tfmt": "srt",
-    }
+    params = {"tfmt": "srt"}
     query = urllib.parse.urlencode(params)
-    url = f"{_CAPTIONS_DOWNLOAD_URL}/{caption_id}?{query}"
+    url = f"{_CAPTIONS_DOWNLOAD_URL}/{urllib.parse.quote(caption_id)}?{query}"
     req = urllib.request.Request(url)  # noqa: S310
     req.add_header("Authorization", f"Bearer {access_token}")
 

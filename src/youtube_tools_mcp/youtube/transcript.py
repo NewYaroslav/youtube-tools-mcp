@@ -234,10 +234,13 @@ class TranscriptFetcher:
             return self._fetch_via_captions_api(video_id, languages)
         except TranscriptFetchError as exc:
             errors.append(f"captions API fallback failed: {exc}")
+        details = " | ".join(errors) if errors else "no fallback attempts were made"
         if isinstance(original_exc, CouldNotRetrieveTranscript):
-            raise _map_exception(original_exc) from original_exc
+            raise TranscriptFetchError(
+                f"Failed to fetch transcript: {original_exc}. Fallback attempts: {details}"
+            ) from original_exc
         raise TranscriptFetchError(
-            f"Unexpected error fetching transcript: {original_exc}. Fallback attempts: {' | '.join(errors)}"
+            f"Unexpected error fetching transcript: {original_exc}. Fallback attempts: {details}"
         ) from original_exc
 
     def fetch(self, video_id: str, languages: tuple[str, ...] = ("en",)) -> str:
