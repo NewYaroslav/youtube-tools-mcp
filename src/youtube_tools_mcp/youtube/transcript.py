@@ -135,9 +135,21 @@ def fetch_transcript_via_ytdlp(
         raise TranscriptFetchError("No automatic captions available via yt-dlp")
 
     req = urllib.request.Request(selected_url)
+    proxy_url = get_proxy_url(proxy)
+    opener = (
+        urllib.request.build_opener(
+            urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url})
+        )
+        if proxy_url
+        else None
+    )
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:  # noqa: S310
-            data = json.loads(resp.read())
+        if opener is not None:
+            with opener.open(req, timeout=20) as resp:
+                data = json.loads(resp.read())
+        else:
+            with urllib.request.urlopen(req, timeout=20) as resp:  # noqa: S310
+                data = json.loads(resp.read())
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
         raise TranscriptFetchError(f"Failed to download subtitles: HTTP {exc.code}: {body}") from exc
@@ -203,21 +215,30 @@ class TranscriptFetcher:
         from youtube_tools_mcp.youtube.captions import fetch_transcript_via_data_api
 
         api_key = os.environ.get("YOUTUBE_API_KEY")
-        return fetch_transcript_via_data_api(video_id, languages, api_key=api_key)
+        return fetch_transcript_via_data_api(
+            video_id,
+            languages,
+            api_key=api_key,
+            proxy=self._proxy_url,
+        )
 
     def _try_fallbacks(self, video_id: str, languages: tuple[str, ...], original_exc: Exception) -> str:
         """Try yt-dlp then Data API captions fallback."""
+        errors: list[str] = []
         if self._cookies_from_browser:
             try:
                 return self._fetch_via_ytdlp(video_id, languages)
-            except TranscriptFetchError:
-                pass
+            except TranscriptFetchError as exc:
+                errors.append(f"yt-dlp fallback failed: {exc}")
         try:
             return self._fetch_via_captions_api(video_id, languages)
-        except TranscriptFetchError:
-            if isinstance(original_exc, CouldNotRetrieveTranscript):
-                raise _map_exception(original_exc) from original_exc
-            raise TranscriptFetchError(f"Unexpected error fetching transcript: {original_exc}") from original_exc
+        except TranscriptFetchError as exc:
+            errors.append(f"captions API fallback failed: {exc}")
+        if isinstance(original_exc, CouldNotRetrieveTranscript):
+            raise _map_exception(original_exc) from original_exc
+        raise TranscriptFetchError(
+            f"Unexpected error fetching transcript: {original_exc}. Fallback attempts: {' | '.join(errors)}"
+        ) from original_exc
 
     def fetch(self, video_id: str, languages: tuple[str, ...] = ("en",)) -> str:
         """Fetch transcript and format as timestamped text.

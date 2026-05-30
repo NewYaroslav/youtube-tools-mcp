@@ -9,7 +9,7 @@ import pytest
 
 from youtube_tools_mcp.youtube.oauth import (
     OAuthError,
-    _find_free_port,
+    _find_port,
     _load_token_data,
     _save_token_data,
     get_access_token,
@@ -55,7 +55,7 @@ class TestLoadSaveTokenData:
 
 class TestFindFreePort:
     def test_returns_port(self):
-        port = _find_free_port(50000)
+        port = _find_port(50000)
         assert isinstance(port, int)
         assert port >= 50000
 
@@ -158,7 +158,7 @@ class TestRunAuthorizationFlow:
 
         with (
             patch("youtube_tools_mcp.youtube.oauth._TOKEN_FILE", token_file),
-            patch("youtube_tools_mcp.youtube.oauth._find_free_port", return_value=65000),
+            patch("youtube_tools_mcp.youtube.oauth._find_port", return_value=65000),
             patch(
                 "youtube_tools_mcp.youtube.oauth._wait_for_callback",
                 return_value={"code": "authcode", "state": "test_state", "error": None},
@@ -182,7 +182,7 @@ class TestRunAuthorizationFlow:
 
         with (
             patch("youtube_tools_mcp.youtube.oauth._TOKEN_FILE", token_file),
-            patch("youtube_tools_mcp.youtube.oauth._find_free_port", return_value=65001),
+            patch("youtube_tools_mcp.youtube.oauth._find_port", return_value=65001),
             patch(
                 "youtube_tools_mcp.youtube.oauth._wait_for_callback",
                 return_value={"code": None, "state": None, "error": "access_denied"},
@@ -197,7 +197,7 @@ class TestRunAuthorizationFlow:
 
         with (
             patch("youtube_tools_mcp.youtube.oauth._TOKEN_FILE", token_file),
-            patch("youtube_tools_mcp.youtube.oauth._find_free_port", return_value=65002),
+            patch("youtube_tools_mcp.youtube.oauth._find_port", return_value=65002),
             patch(
                 "youtube_tools_mcp.youtube.oauth._wait_for_callback",
                 return_value={"code": "validcode", "state": "wrong_state", "error": None},
