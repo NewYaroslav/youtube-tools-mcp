@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from youtube_transcript_api import (
     YouTubeTranscriptApi,
 )
@@ -64,24 +66,43 @@ class TranscriptFetcher:
         else:
             self._api = YouTubeTranscriptApi()
 
+    def _fetch_yta(self, video_id: str, languages: tuple[str, ...]) -> str:
+        """Fetch via youtube-transcript-api and format output."""
+        transcript = self._api.fetch(video_id, languages=list(languages))
+        lines: list[str] = []
+        for snippet in transcript:
+            ts = format_timestamp(snippet.start)
+            text = snippet.text.replace("\n", " ")
+            lines.append(f"[{ts}] {text}")
+        return "\n".join(lines)
+
+    def _fetch_via_captions_api(self, video_id: str, languages: tuple[str, ...]) -> str:
+        """Fetch via YouTube Data API captions (requires OAuth)."""
+        from youtube_tools_mcp.youtube.captions import fetch_transcript_via_data_api
+
+        api_key = os.environ.get("YOUTUBE_API_KEY")
+        return fetch_transcript_via_data_api(video_id, languages, api_key=api_key)
+
     def fetch(self, video_id: str, languages: tuple[str, ...] = ("en",)) -> str:
         """Fetch transcript and format as timestamped text.
 
         Returns a string with lines like "[MM:SS] transcript text".
         """
         try:
-            transcript = self._api.fetch(video_id, languages=list(languages))
+            return self._fetch_yta(video_id, languages)
         except (TranscriptsDisabled, NoTranscriptFound, InvalidVideoId, VideoUnplayable) as exc:
+            # Definitive errors — no point trying fallback
             raise _map_exception(exc) from exc
         except CouldNotRetrieveTranscript as exc:
-            raise _map_exception(exc) from exc
+            # IP blocked or other retrievable failure — try OAuth fallback
+            try:
+                return self._fetch_via_captions_api(video_id, languages)
+            except TranscriptFetchError:
+                # Fallback also failed — return original error
+                raise _map_exception(exc) from exc
         except Exception as exc:
-            raise TranscriptFetchError(f"Unexpected error fetching transcript: {exc}") from exc
-
-        lines: list[str] = []
-        for snippet in transcript:
-            ts = format_timestamp(snippet.start)
-            text = snippet.text.replace("\n", " ")
-            lines.append(f"[{ts}] {text}")
-
-        return "\n".join(lines)
+            # Unexpected error — try fallback
+            try:
+                return self._fetch_via_captions_api(video_id, languages)
+            except TranscriptFetchError:
+                raise TranscriptFetchError(f"Unexpected error fetching transcript: {exc}") from exc

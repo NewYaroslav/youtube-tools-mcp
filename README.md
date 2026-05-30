@@ -240,6 +240,8 @@ When installed via `uvx` from an MCP client, the server may run outside your pro
 | `YOUTUBE_TOOLS_VISION_BASE_URL` | For vision analysis | OpenAI-compatible base URL. Falls back to `OPENAI_BASE_URL`, then `ANTHROPIC_BASE_URL` + `/v1`. |
 | `YOUTUBE_TOOLS_VISION_API_KEY` | For vision analysis | API token. Falls back to `OPENAI_API_KEY`. |
 | `YOUTUBE_TOOLS_VISION_MODEL` | For vision analysis | Vision-capable model. Falls back to `OPENAI_VISION_MODEL`, `ANTHROPIC_TOOL_USE_MODEL`, then `ANTHROPIC_MODEL`. |
+| `YOUTUBE_OAUTH_CLIENT_ID` | No | Google OAuth Client ID for transcript fallback via YouTube Data API captions. |
+| `YOUTUBE_OAUTH_CLIENT_SECRET` | No | Google OAuth Client Secret for transcript fallback. |
 | `YOUTUBE_TOOLS_VISION_MAX_TOKENS` | No | Vision completion token budget. Defaults to `1024`; values are clamped from `64` to `4096`. |
 | `YOUTUBE_TOOLS_VISION_TIMEOUT` | No | Vision request timeout in seconds. Defaults to `60`. |
 
@@ -275,6 +277,57 @@ Add the proxy to your MCP client `env` block:
   }
 }
 ```
+
+### OAuth fallback for transcripts
+
+When `youtube-transcript-api` fails because of an IP block, the server can fall back to YouTube Data API `captions.download`, which requires OAuth 2.0 authorization. You only need to set this up once.
+
+**Prerequisites:**
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) and create or select a project.
+2. Enable the **YouTube Data API v3**.
+3. Go to **APIs & Services > Credentials > Create Credentials > OAuth client ID**.
+4. Choose **TV and Limited Input devices** as the application type.
+5. Note the **Client ID** and **Client Secret**.
+
+**Authorize once:**
+
+If running locally (project checkout):
+
+```bash
+# PowerShell
+$env:YOUTUBE_OAUTH_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+$env:YOUTUBE_OAUTH_CLIENT_SECRET="your-client-secret"
+uv run youtube-tools-mcp-oauth
+```
+
+```bash
+# Bash / Linux / macOS
+export YOUTUBE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
+export YOUTUBE_OAUTH_CLIENT_SECRET=your-client-secret
+uv run youtube-tools-mcp-oauth
+```
+
+The CLI prints a URL and a user code. Open the URL in any browser, sign in to your Google account, and enter the code. After authorization succeeds, the refresh token is saved to `~/.config/youtube-tools-mcp/oauth.json` (or `%USERPROFILE%\.config\youtube-tools-mcp\oauth.json` on Windows).
+
+**If running via `uvx` from an MCP client:**
+
+Set `YOUTUBE_OAUTH_CLIENT_ID` and `YOUTUBE_OAUTH_CLIENT_SECRET` in the MCP client `env` block, then run the CLI from a terminal that has the same `uvx` environment:
+
+```bash
+uvx --from git+https://github.com/NewYaroslav/youtube-tools-mcp youtube-tools-mcp-oauth
+```
+
+The token file is stored on the machine where the server runs. For remote or containerized MCP clients, mount or sync `~/.config/youtube-tools-mcp/oauth.json` into the container.
+
+**How it works:**
+
+- `get_youtube_transcript` first tries `youtube-transcript-api`.
+- If the request is blocked (`RequestBlocked`), it falls back to `captions.download` via YouTube Data API.
+- The OAuth token is auto-refreshed before each call; you do not need to re-authorize unless the token is revoked.
+- `YOUTUBE_API_KEY` is still recommended because it enables `captions.list` (which needs no OAuth), but OAuth handles the actual download.
+
+**Security note:** OAuth tokens are stored locally in plain JSON. Keep the token file private. Revoke the token in [Google Account Permissions](https://myaccount.google.com/permissions) if needed.
 
 ### Browser cookies for YouTube authentication
 

@@ -132,6 +132,87 @@ class TestTranscriptFetcher:
         with pytest.raises(TranscriptFetchError, match="Unexpected error"):
             fetcher.fetch(SAMPLE_VIDEO_ID)
 
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    def test_fetch_could_not_retrieve_falls_back_to_captions_api(
+        self,
+        mock_api_cls: MagicMock,
+    ) -> None:
+        mock_api = mock_api_cls.return_value
+        mock_api.fetch.side_effect = CouldNotRetrieveTranscript("blocked")
+
+        fetcher = TranscriptFetcher()
+        with patch(
+            "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_captions_api",
+            return_value="[00:01] fallback line",
+        ):
+            result = fetcher.fetch(SAMPLE_VIDEO_ID)
+
+        assert result == "[00:01] fallback line"
+
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    def test_fetch_could_not_retrieve_fallback_also_fails_raises_original(
+        self,
+        mock_api_cls: MagicMock,
+    ) -> None:
+        mock_api = mock_api_cls.return_value
+        mock_api.fetch.side_effect = CouldNotRetrieveTranscript("blocked")
+
+        fetcher = TranscriptFetcher()
+        with patch(
+            "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_captions_api",
+            side_effect=TranscriptFetchError("fallback failed"),
+        ), pytest.raises(TranscriptFetchError, match="blocked"):
+            fetcher.fetch(SAMPLE_VIDEO_ID)
+
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    def test_fetch_unexpected_exception_falls_back_to_captions_api(
+        self,
+        mock_api_cls: MagicMock,
+    ) -> None:
+        mock_api = mock_api_cls.return_value
+        mock_api.fetch.side_effect = RuntimeError("unexpected")
+
+        fetcher = TranscriptFetcher()
+        with patch(
+            "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_captions_api",
+            return_value="[00:02] fallback",
+        ):
+            result = fetcher.fetch(SAMPLE_VIDEO_ID)
+
+        assert result == "[00:02] fallback"
+
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    def test_fetch_no_fallback_for_transcripts_disabled(
+        self,
+        mock_api_cls: MagicMock,
+    ) -> None:
+        mock_api = mock_api_cls.return_value
+        mock_api.fetch.side_effect = TranscriptsDisabled("disabled")
+
+        fetcher = TranscriptFetcher()
+        with patch(
+            "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_captions_api",
+        ) as mock_fallback:
+            with pytest.raises(TranscriptsDisabledError, match="disabled"):
+                fetcher.fetch(SAMPLE_VIDEO_ID)
+            mock_fallback.assert_not_called()
+
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    def test_fetch_no_fallback_for_no_transcript_found(
+        self,
+        mock_api_cls: MagicMock,
+    ) -> None:
+        mock_api = mock_api_cls.return_value
+        mock_api.fetch.side_effect = NoTranscriptFound(SAMPLE_VIDEO_ID, ["en"], [])
+
+        fetcher = TranscriptFetcher()
+        with patch(
+            "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_captions_api",
+        ) as mock_fallback:
+            with pytest.raises(NoTranscriptFoundError):
+                fetcher.fetch(SAMPLE_VIDEO_ID)
+            mock_fallback.assert_not_called()
+
 
 class TestTranscriptFetcherProxy:
     @patch.dict("os.environ", {"HTTPS_PROXY": "http://127.0.0.1:8080"})
