@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import socket
 import time
+import urllib.parse
 from pathlib import Path
 from unittest.mock import patch
 
@@ -58,6 +60,19 @@ class TestEnsurePortFree:
         port = _ensure_port_free(50000)
         assert isinstance(port, int)
         assert port == 50000
+
+    def test_raises_when_port_is_in_use(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            sock.listen(1)
+            port = sock.getsockname()[1]
+
+            with pytest.raises(OAuthError) as exc_info:
+                _ensure_port_free(port)
+
+        message = str(exc_info.value)
+        assert f"Port {port} is already in use" in message
+        assert "{port}" not in message
 
 
 class TestGetAccessToken:
@@ -116,9 +131,12 @@ class TestGetAccessToken:
         }
         from urllib.error import HTTPError
 
-        with patch("youtube_tools_mcp.youtube.oauth._load_token_data", return_value=data), patch(
-            "urllib.request.urlopen",
-            side_effect=HTTPError("url", 400, "Bad Request", {}, None),
+        with (
+            patch("youtube_tools_mcp.youtube.oauth._load_token_data", return_value=data),
+            patch(
+                "urllib.request.urlopen",
+                side_effect=HTTPError("url", 400, "Bad Request", {}, None),
+            ),
         ):
             result = get_access_token()
         assert result is None
@@ -135,16 +153,20 @@ class TestRefreshAccessToken:
     def test_raises_on_error(self):
         from urllib.error import HTTPError
 
-        with patch(
-            "urllib.request.urlopen",
-            side_effect=HTTPError("url", 400, "Bad Request", {}, None),
-        ), pytest.raises(OAuthError):
+        with (
+            patch(
+                "urllib.request.urlopen",
+                side_effect=HTTPError("url", 400, "Bad Request", {}, None),
+            ),
+            pytest.raises(OAuthError),
+        ):
             refresh_access_token("rt", "cid", "cs")
 
 
 class TestRunAuthorizationFlow:
     def test_success(self, tmp_path: Path, capsys):
         token_file = tmp_path / "oauth.json"
+        opened_urls: list[str] = []
         token_resp = MockResponse(
             {
                 "refresh_token": "rt",
@@ -165,12 +187,24 @@ class TestRunAuthorizationFlow:
             ),
             patch("secrets.token_urlsafe", return_value="test_state"),
             patch("urllib.request.urlopen", side_effect=_handle_request),
+            patch("youtube_tools_mcp.youtube.oauth.webbrowser.open", side_effect=opened_urls.append),
         ):
             run_authorization_flow("cid", "cs")
 
         captured = capsys.readouterr()
         assert "accounts.google.com" in captured.out
         assert "Waiting for authorization" in captured.out
+        assert len(opened_urls) == 1
+
+        auth_url = urllib.parse.urlparse(opened_urls[0])
+        auth_params = urllib.parse.parse_qs(auth_url.query)
+        assert auth_url.scheme == "https"
+        assert auth_url.netloc == "accounts.google.com"
+        assert auth_url.path == "/o/oauth2/v2/auth"
+        assert auth_params["redirect_uri"] == ["http://127.0.0.1:65000"]
+        assert auth_params["prompt"] == ["consent"]
+        assert auth_params["access_type"] == ["offline"]
+        assert auth_params["scope"] == ["https://www.googleapis.com/auth/youtube.force-ssl"]
 
         data = json.loads(token_file.read_text(encoding="utf-8"))
         assert data is not None

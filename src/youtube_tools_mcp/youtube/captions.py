@@ -42,9 +42,7 @@ def _api_get(
 
     proxy_url = get_proxy_url(proxy)
     opener = (
-        urllib.request.build_opener(
-            urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url})
-        )
+        urllib.request.build_opener(urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url}))
         if proxy_url
         else None
     )
@@ -119,9 +117,7 @@ def download_caption_track(
 
     proxy_url = get_proxy_url(proxy)
     opener = (
-        urllib.request.build_opener(
-            urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url})
-        )
+        urllib.request.build_opener(urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url}))
         if proxy_url
         else None
     )
@@ -180,11 +176,12 @@ def fetch_transcript_via_data_api(
     """Fetch transcript via YouTube Data API captions.download."""
     access_token = get_access_token()
     if not access_token:
-        raise TranscriptFetchError(
-            "OAuth token not available. Run `youtube-tools-mcp-oauth` to authorize."
-        )
+        raise TranscriptFetchError("OAuth token not available. Run `youtube-tools-mcp-oauth` to authorize.")
 
-    tracks = list_caption_tracks(video_id, api_key=api_key, access_token=access_token, proxy=proxy)
+    try:
+        tracks = list_caption_tracks(video_id, api_key=api_key, access_token=access_token, proxy=proxy)
+    except CaptionError as exc:
+        raise TranscriptFetchError(f"YouTube Data API captions fallback failed: {exc}") from exc
 
     if not tracks:
         raise TranscriptFetchError("No caption tracks found for this video")
@@ -225,7 +222,10 @@ def fetch_transcript_via_data_api(
     if not caption_id:
         raise TranscriptFetchError("Selected caption track has no ID")
 
-    srt_text = download_caption_track(caption_id, access_token, proxy=proxy)
+    try:
+        srt_text = download_caption_track(caption_id, access_token, proxy=proxy)
+    except CaptionError as exc:
+        raise TranscriptFetchError(f"YouTube Data API captions fallback failed: {exc}") from exc
     snippets = _parse_srt(srt_text)
 
     if not snippets:

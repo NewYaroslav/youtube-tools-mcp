@@ -124,10 +124,13 @@ class TestListCaptionTracks:
     def test_http_error(self):
         from urllib.error import HTTPError
 
-        with patch(
-            "urllib.request.urlopen",
-            side_effect=HTTPError("url", 403, "Forbidden", {}, None),
-        ), pytest.raises(CaptionListError, match="403"):
+        with (
+            patch(
+                "urllib.request.urlopen",
+                side_effect=HTTPError("url", 403, "Forbidden", {}, None),
+            ),
+            pytest.raises(CaptionListError, match="403"),
+        ):
             list_caption_tracks("vid123", api_key="test_key")
 
 
@@ -141,24 +144,56 @@ class TestDownloadCaptionTrack:
     def test_http_error(self):
         from urllib.error import HTTPError
 
-        with patch(
-            "urllib.request.urlopen",
-            side_effect=HTTPError("url", 403, "Forbidden", {}, None),
-        ), pytest.raises(CaptionDownloadError, match="403"):
+        with (
+            patch(
+                "urllib.request.urlopen",
+                side_effect=HTTPError("url", 403, "Forbidden", {}, None),
+            ),
+            pytest.raises(CaptionDownloadError, match="403"),
+        ):
             download_caption_track("cid1", "access_token_123")
 
 
 class TestFetchTranscriptViaDataApi:
     def test_no_oauth_token(self):
-        with patch(
-            "youtube_tools_mcp.youtube.captions.get_access_token", return_value=None
-        ), pytest.raises(TranscriptFetchError, match="OAuth token not available"):
+        with (
+            patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value=None),
+            pytest.raises(TranscriptFetchError, match="OAuth token not available"),
+        ):
             fetch_transcript_via_data_api("vid123", ("ru",))
 
     def test_no_tracks(self):
-        with patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value="at"), patch(
-            "youtube_tools_mcp.youtube.captions.list_caption_tracks", return_value=[]
-        ), pytest.raises(TranscriptFetchError, match="No caption tracks"):
+        with (
+            patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value="at"),
+            patch("youtube_tools_mcp.youtube.captions.list_caption_tracks", return_value=[]),
+            pytest.raises(TranscriptFetchError, match="No caption tracks"),
+        ):
+            fetch_transcript_via_data_api("vid123", ("ru",))
+
+    def test_caption_list_error_is_wrapped_as_transcript_fetch_error(self):
+        with (
+            patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value="at"),
+            patch(
+                "youtube_tools_mcp.youtube.captions.list_caption_tracks",
+                side_effect=CaptionListError("HTTP 403"),
+            ),
+            pytest.raises(TranscriptFetchError, match="HTTP 403"),
+        ):
+            fetch_transcript_via_data_api("vid123", ("ru",))
+
+    def test_caption_download_error_is_wrapped_as_transcript_fetch_error(self):
+        tracks = [
+            {"id": "cid1", "language": "ru", "name": "Russian", "is_auto_generated": True},
+        ]
+        with (
+            patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value="at"),
+            patch("youtube_tools_mcp.youtube.captions.list_caption_tracks", return_value=tracks),
+            patch(
+                "youtube_tools_mcp.youtube.captions.download_caption_track",
+                side_effect=CaptionDownloadError("HTTP 403"),
+            ),
+            pytest.raises(TranscriptFetchError, match="HTTP 403"),
+        ):
             fetch_transcript_via_data_api("vid123", ("ru",))
 
     def test_success_exact_match(self):
@@ -166,11 +201,13 @@ class TestFetchTranscriptViaDataApi:
             {"id": "cid1", "language": "ru", "name": "Russian", "is_auto_generated": True},
             {"id": "cid2", "language": "en", "name": "English", "is_auto_generated": False},
         ]
-        with patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value="at"), patch(
-            "youtube_tools_mcp.youtube.captions.list_caption_tracks", return_value=tracks
-        ), patch(
-            "youtube_tools_mcp.youtube.captions.download_caption_track",
-            return_value=_SRT_SAMPLE,
+        with (
+            patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value="at"),
+            patch("youtube_tools_mcp.youtube.captions.list_caption_tracks", return_value=tracks),
+            patch(
+                "youtube_tools_mcp.youtube.captions.download_caption_track",
+                return_value=_SRT_SAMPLE,
+            ),
         ):
             result = fetch_transcript_via_data_api("vid123", ("en",))
 
@@ -181,11 +218,13 @@ class TestFetchTranscriptViaDataApi:
         tracks = [
             {"id": "cid1", "language": "de", "name": "German", "is_auto_generated": False},
         ]
-        with patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value="at"), patch(
-            "youtube_tools_mcp.youtube.captions.list_caption_tracks", return_value=tracks
-        ), patch(
-            "youtube_tools_mcp.youtube.captions.download_caption_track",
-            return_value=_SRT_SAMPLE,
+        with (
+            patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value="at"),
+            patch("youtube_tools_mcp.youtube.captions.list_caption_tracks", return_value=tracks),
+            patch(
+                "youtube_tools_mcp.youtube.captions.download_caption_track",
+                return_value=_SRT_SAMPLE,
+            ),
         ):
             result = fetch_transcript_via_data_api("vid123", ("ru",))
 
@@ -193,19 +232,24 @@ class TestFetchTranscriptViaDataApi:
 
     def test_empty_caption_id(self):
         tracks = [{"id": None, "language": "ru", "name": "Russian", "is_auto_generated": True}]
-        with patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value="at"), patch(
-            "youtube_tools_mcp.youtube.captions.list_caption_tracks", return_value=tracks
-        ), pytest.raises(TranscriptFetchError, match="no ID"):
+        with (
+            patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value="at"),
+            patch("youtube_tools_mcp.youtube.captions.list_caption_tracks", return_value=tracks),
+            pytest.raises(TranscriptFetchError, match="no ID"),
+        ):
             fetch_transcript_via_data_api("vid123", ("ru",))
 
     def test_empty_srt(self):
         tracks = [
             {"id": "cid1", "language": "ru", "name": "Russian", "is_auto_generated": True},
         ]
-        with patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value="at"), patch(
-            "youtube_tools_mcp.youtube.captions.list_caption_tracks", return_value=tracks
-        ), patch(
-            "youtube_tools_mcp.youtube.captions.download_caption_track",
-            return_value="invalid",
-        ), pytest.raises(TranscriptFetchError, match="empty"):
+        with (
+            patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value="at"),
+            patch("youtube_tools_mcp.youtube.captions.list_caption_tracks", return_value=tracks),
+            patch(
+                "youtube_tools_mcp.youtube.captions.download_caption_track",
+                return_value="invalid",
+            ),
+            pytest.raises(TranscriptFetchError, match="empty"),
+        ):
             fetch_transcript_via_data_api("vid123", ("ru",))

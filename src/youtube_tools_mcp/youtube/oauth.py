@@ -57,11 +57,7 @@ def _ensure_port_free(port: int = _DEFAULT_PORT) -> int:
     """Verify the default OAuth callback port is available."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         if s.connect_ex(("127.0.0.1", port)) == 0:
-            raise OAuthError(
-                f"Port {port} is already in use. "
-                "Stop the other process or add http://127.0.0.1:{port} "
-                "as an additional Authorized redirect URI in Google Cloud Console."
-            )
+            raise OAuthError(f"Port {port} is already in use. Stop the other process and try again.")
     return port
 
 
@@ -83,9 +79,7 @@ def _post_form(url: str, params: dict[str, str]) -> dict[str, Any]:
         raise OAuthError("Invalid JSON response") from exc
 
 
-def _exchange_code_for_token(
-    code: str, redirect_uri: str, client_id: str, client_secret: str
-) -> dict[str, Any]:
+def _exchange_code_for_token(code: str, redirect_uri: str, client_id: str, client_secret: str) -> dict[str, Any]:
     return _post_form(
         _TOKEN_URL,
         {
@@ -109,8 +103,7 @@ class _CallbackHandler(BaseHTTPRequestHandler):
         result = {
             "code": query.get("code", [None])[0],
             "state": query.get("state", [None])[0],
-            "error": query.get("error_description", [None])[0]
-            or query.get("error", [None])[0],
+            "error": query.get("error_description", [None])[0] or query.get("error", [None])[0],
         }
         self.server._oauth_result = result
 
@@ -119,10 +112,7 @@ class _CallbackHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
         if result["code"]:
-            body = (
-                "<h1>Authorization successful</h1>"
-                "<p>You can close this window and return to the terminal.</p>"
-            )
+            body = "<h1>Authorization successful</h1><p>You can close this window and return to the terminal.</p>"
         else:
             err = result["error"] or "Unknown error"
             body = f"<h1>Authorization failed</h1><p>{err}</p>"
@@ -240,9 +230,7 @@ def get_access_token() -> str | None:
         return str(data["access_token"])
 
     try:
-        access_token, expires_in = refresh_access_token(
-            str(refresh_token), str(client_id), str(client_secret)
-        )
+        access_token, expires_in = refresh_access_token(str(refresh_token), str(client_id), str(client_secret))
     except OAuthError:
         return None
 
