@@ -52,11 +52,13 @@ def _save_token_data(data: dict[str, Any]) -> None:
 
 
 def _find_free_port(start: int = _DEFAULT_PORT) -> int:
-    for port in range(start, start + 100):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(("127.0.0.1", port)) != 0:
-                return port
-    raise OAuthError("No free localhost port found")
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        if s.connect_ex(("127.0.0.1", start)) != 0:
+            return start
+    raise OAuthError(
+        f"Port {start} is already in use. "
+        "Make sure no other process is using it and try again."
+    )
 
 
 def _post_form(url: str, params: dict[str, str]) -> dict[str, Any]:
@@ -139,7 +141,7 @@ def _wait_for_callback(port: int, timeout: float = 300.0) -> dict[str, str | Non
 def run_authorization_flow(client_id: str, client_secret: str) -> None:
     """Run OAuth 2.0 authorization code flow with localhost callback."""
     port = _find_free_port()
-    redirect_uri = f"http://localhost:{port}"
+    redirect_uri = f"http://127.0.0.1:{port}"
     state = secrets.token_urlsafe(16)
 
     auth_params = {

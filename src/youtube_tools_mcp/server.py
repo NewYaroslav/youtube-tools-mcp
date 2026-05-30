@@ -57,6 +57,8 @@ def get_youtube_transcript(
     url_or_id: str,
     languages: list[str] | None = None,
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> str:
     """Extract transcript/subtitles from a YouTube video.
 
@@ -69,8 +71,13 @@ def get_youtube_transcript(
         proxy: Proxy URL for YouTube requests, especially when YouTube blocks the request
             with bot-check, captcha, sign-in, or anti-abuse messages.
             Example: http://user:pass@host:port.
+        cookies_from_browser: Browser to extract cookies from for YouTube auth.
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
     """
-    return _get_youtube_transcript(url_or_id, languages, proxy)
+    return _get_youtube_transcript(url_or_id, languages, proxy, cookies_from_browser, client)
 
 
 @mcp.tool()

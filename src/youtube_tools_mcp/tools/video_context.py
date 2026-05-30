@@ -78,7 +78,11 @@ def get_youtube_video_context(
             "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
         )
 
-    fetcher = TranscriptFetcher(proxy_url=proxy)
+    fetcher = TranscriptFetcher(
+        proxy_url=proxy,
+        cookies_from_browser=cookies_from_browser,
+        client=client,
+    )
     try:
         transcript = fetcher.fetch(video_id, languages=tuple(languages))
     except TranscriptsDisabledError as exc:

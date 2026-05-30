@@ -19,6 +19,7 @@ from youtube_tools_mcp.youtube.transcript import (
     TranscriptFetchError,
     TranscriptsDisabledError,
     VideoUnavailableError,
+    _parse_json3_events,
 )
 
 from ..conftest import SAMPLE_VIDEO_ID
@@ -216,6 +217,77 @@ class TestTranscriptFetcher:
             with pytest.raises(NoTranscriptFoundError):
                 fetcher.fetch(SAMPLE_VIDEO_ID)
             mock_fallback.assert_not_called()
+
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    def test_fetch_could_not_retrieve_falls_back_to_ytdlp_when_cookies_set(
+        self,
+        mock_api_cls: MagicMock,
+    ) -> None:
+        mock_api = mock_api_cls.return_value
+        mock_api.fetch.side_effect = CouldNotRetrieveTranscript("blocked")
+
+        fetcher = TranscriptFetcher(cookies_from_browser="firefox")
+        with patch(
+            "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_ytdlp",
+            return_value="[00:01] ytdlp line",
+        ) as mock_ytdlp:
+            result = fetcher.fetch(SAMPLE_VIDEO_ID)
+
+        assert result == "[00:01] ytdlp line"
+        mock_ytdlp.assert_called_once()
+
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    def test_fetch_ytdlp_fallback_fails_then_tries_captions_api(
+        self,
+        mock_api_cls: MagicMock,
+    ) -> None:
+        mock_api = mock_api_cls.return_value
+        mock_api.fetch.side_effect = CouldNotRetrieveTranscript("blocked")
+
+        fetcher = TranscriptFetcher(cookies_from_browser="firefox")
+        with (
+            patch(
+                "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_ytdlp",
+                side_effect=TranscriptFetchError("ytdlp failed"),
+            ) as mock_ytdlp,
+            patch(
+                "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_captions_api",
+                return_value="[00:02] captions line",
+            ) as mock_captions,
+        ):
+            result = fetcher.fetch(SAMPLE_VIDEO_ID)
+
+        assert result == "[00:02] captions line"
+        mock_ytdlp.assert_called_once()
+        mock_captions.assert_called_once()
+
+
+class TestParseJson3Events:
+    def test_parse_simple(self):
+        events = [
+            {"tStartMs": 1000, "dDurationMs": 2500, "segs": [{"utf8": "Hello "}, {"utf8": "world"}]},
+            {"tStartMs": 4000, "dDurationMs": 2000, "segs": [{"utf8": "Second"}]},
+            {"tStartMs": 7000, "segs": [{"utf8": "\n"}]},
+        ]
+        result = _parse_json3_events(events)
+        assert len(result) == 2
+        assert result[0]["text"] == "Hello world"
+        assert result[0]["start"] == 1.0
+        assert result[0]["duration"] == 2.5
+        assert result[1]["text"] == "Second"
+        assert result[1]["start"] == 4.0
+
+    def test_empty_events(self):
+        assert _parse_json3_events([]) == []
+
+    def test_skips_no_segs(self):
+        events = [
+            {"tStartMs": 1000, "dDurationMs": 1000},
+            {"tStartMs": 2000, "dDurationMs": 1000, "segs": [{"utf8": "only"}]},
+        ]
+        result = _parse_json3_events(events)
+        assert len(result) == 1
+        assert result[0]["text"] == "only"
 
 
 class TestTranscriptFetcherProxy:

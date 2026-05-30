@@ -22,6 +22,8 @@ def get_youtube_transcript(
     url_or_id: str,
     languages: list[str] | None = None,
     proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
 ) -> str:
     """Extract transcript/subtitles from a YouTube video.
 
@@ -29,6 +31,11 @@ def get_youtube_transcript(
         url_or_id: YouTube video URL or 11-character video ID.
         languages: Preferred language codes in priority order. Defaults to ["ru", "en"].
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
+        cookies_from_browser: Browser to extract cookies from for YouTube auth.
+            Any yt-dlp supported browser or profile syntax works, e.g.
+            "chrome", "firefox", "edge", "chrome:Profile 1".
+        client: yt-dlp client profile to spoof. Try "android" or "ios" when
+            YouTube blocks with bot-check. Defaults to "web".
 
     Returns:
         Timestamped transcript text with format [MM:SS] text per line.
@@ -41,7 +48,11 @@ def get_youtube_transcript(
     except ValueError as exc:
         raise _err(str(exc)) from exc
 
-    fetcher = TranscriptFetcher(proxy_url=proxy)
+    fetcher = TranscriptFetcher(
+        proxy_url=proxy,
+        cookies_from_browser=cookies_from_browser,
+        client=client,
+    )
     try:
         return fetcher.fetch(video_id, languages=tuple(languages))
     except TranscriptsDisabledError as exc:
@@ -56,5 +67,6 @@ def get_youtube_transcript(
         raise _err(
             f"Failed to fetch transcript: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used."
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
+            "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
         ) from exc
