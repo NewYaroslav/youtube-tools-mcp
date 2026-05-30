@@ -42,7 +42,9 @@ def _api_get(
 
     proxy_url = get_proxy_url(proxy)
     opener = (
-        urllib.request.build_opener(urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url}))
+        urllib.request.build_opener(
+            urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url}),
+        )
         if proxy_url
         else None
     )
@@ -117,7 +119,9 @@ def download_caption_track(
 
     proxy_url = get_proxy_url(proxy)
     opener = (
-        urllib.request.build_opener(urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url}))
+        urllib.request.build_opener(
+            urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url}),
+        )
         if proxy_url
         else None
     )
