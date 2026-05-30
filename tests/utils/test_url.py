@@ -32,6 +32,14 @@ class TestExtractVideoId:
         url = "https://www.youtube.com/embed/dQw4w9WgXcQ"
         assert extract_video_id(url) == "dQw4w9WgXcQ"
 
+    def test_shorts_url(self) -> None:
+        url = "https://www.youtube.com/shorts/R-TlOApnm-s"
+        assert extract_video_id(url) == "R-TlOApnm-s"
+
+    def test_shorts_url_with_extra_params(self) -> None:
+        url = "https://m.youtube.com/shorts/R-TlOApnm-s?si=test"
+        assert extract_video_id(url) == "R-TlOApnm-s"
+
     def test_invalid_input_raises_value_error(self) -> None:
         with pytest.raises(ValueError, match="Cannot extract YouTube video ID"):
             extract_video_id("not_a_valid_id")

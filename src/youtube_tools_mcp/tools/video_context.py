@@ -78,7 +78,11 @@ def get_youtube_video_context(
             "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
         )
 
-    fetcher = TranscriptFetcher(proxy_url=proxy)
+    fetcher = TranscriptFetcher(
+        proxy_url=proxy,
+        cookies_from_browser=cookies_from_browser,
+        client=client,
+    )
     try:
         transcript = fetcher.fetch(video_id, languages=tuple(languages))
     except TranscriptsDisabledError as exc:
@@ -93,8 +97,8 @@ def get_youtube_video_context(
         raise _err(
             f"Failed to fetch transcript: {exc}. "
             "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
-            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used. "
-            "Note: cookies_from_browser only helps metadata/download parts of this tool, not transcript fetching."
+            "retry the same tool call with the proxy parameter, or with a different proxy if proxy was already used, "
+            "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
         ) from exc
 
     payload: dict[str, object] = {

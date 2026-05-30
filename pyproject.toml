@@ -15,6 +15,7 @@ dev = ["pytest", "pytest-asyncio", "ruff"]
 
 [project.scripts]
 youtube-tools-mcp = "youtube_tools_mcp.server:main"
+youtube-tools-mcp-oauth = "youtube_tools_mcp.youtube.oauth:main"
 
 [build-system]
 requires = ["hatchling"]
