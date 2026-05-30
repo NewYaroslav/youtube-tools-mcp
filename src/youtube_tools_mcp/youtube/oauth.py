@@ -126,16 +126,20 @@ class _CallbackHandler(BaseHTTPRequestHandler):
 def _wait_for_callback(port: int, timeout: float = 300.0) -> dict[str, str | None]:
     """Start a temporary HTTP server and wait for the OAuth callback."""
     server = HTTPServer(("127.0.0.1", port), _CallbackHandler)
-    server.timeout = timeout
     server._oauth_result = {"code": None, "state": None, "error": None}
-    server.handle_request()
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        server.timeout = max(1.0, deadline - time.time())
+        server.handle_request()
+        if server._oauth_result.get("code") or server._oauth_result.get("error"):
+            break
     return server._oauth_result  # type: ignore[return-value]
 
 
 def run_authorization_flow(client_id: str, client_secret: str) -> None:
     """Run OAuth 2.0 authorization code flow with localhost callback."""
     port = _find_free_port()
-    redirect_uri = f"http://127.0.0.1:{port}"
+    redirect_uri = f"http://localhost:{port}"
     state = secrets.token_urlsafe(16)
 
     auth_params = {
