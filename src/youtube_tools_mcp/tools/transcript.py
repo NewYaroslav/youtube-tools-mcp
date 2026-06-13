@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from mcp.shared.exceptions import McpError
 from mcp.types import INTERNAL_ERROR, ErrorData
 
@@ -16,6 +18,16 @@ from youtube_tools_mcp.youtube.transcript import (
 
 def _err(msg: str) -> McpError:
     return McpError(ErrorData(code=INTERNAL_ERROR, message=msg))
+
+
+def _default_cookies_from_browser(cookies_from_browser: str | None) -> str | None:
+    if cookies_from_browser is not None:
+        return cookies_from_browser.strip() or None
+
+    value = os.environ.get("YOUTUBE_TOOLS_COOKIES_FROM_BROWSER")
+    if value is None:
+        return None
+    return value.strip() or None
 
 
 def get_youtube_transcript(
@@ -42,6 +54,7 @@ def get_youtube_transcript(
     """
     if languages is None:
         languages = ["ru", "en"]
+    cookies_from_browser = _default_cookies_from_browser(cookies_from_browser)
 
     try:
         video_id = extract_video_id(url_or_id)

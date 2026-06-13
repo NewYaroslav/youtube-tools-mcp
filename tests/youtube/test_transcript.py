@@ -235,7 +235,7 @@ class TestTranscriptFetcher:
             mock_fallback.assert_not_called()
 
     @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
-    def test_fetch_could_not_retrieve_falls_back_to_ytdlp_when_cookies_set(
+    def test_fetch_uses_ytdlp_first_when_cookies_set(
         self,
         mock_api_cls: MagicMock,
     ) -> None:
@@ -251,6 +251,7 @@ class TestTranscriptFetcher:
 
         assert result == "[00:01] ytdlp line"
         mock_ytdlp.assert_called_once()
+        mock_api.fetch.assert_not_called()
 
     @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
     def test_fetch_ytdlp_fallback_fails_then_tries_captions_api(
