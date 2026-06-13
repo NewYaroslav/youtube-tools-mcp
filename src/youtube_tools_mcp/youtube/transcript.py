@@ -7,6 +7,7 @@ import re
 import tempfile
 from pathlib import Path
 
+from requests import Session
 from youtube_transcript_api import (
     YouTubeTranscriptApi,
 )
@@ -21,6 +22,8 @@ from youtube_transcript_api.proxies import GenericProxyConfig
 
 from youtube_tools_mcp.utils.proxy import get_proxy_url
 from youtube_tools_mcp.utils.text import format_timestamp
+
+DEFAULT_YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT = 5.0
 
 
 class TranscriptError(Exception):
@@ -45,6 +48,27 @@ class InvalidVideoIdError(TranscriptError):
 
 class TranscriptFetchError(TranscriptError):
     """Failed to fetch the transcript for an unexpected reason."""
+
+
+class _TimeoutSession(Session):
+    def __init__(self, timeout: float) -> None:
+        super().__init__()
+        self.timeout = timeout
+
+    def request(self, method: str, url: str, **kwargs):
+        kwargs.setdefault("timeout", self.timeout)
+        return super().request(method, url, **kwargs)
+
+
+def _youtube_transcript_api_request_timeout() -> float:
+    raw = os.environ.get("YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT")
+    if raw is None or not raw.strip():
+        return DEFAULT_YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT
+    try:
+        timeout = float(raw)
+    except ValueError:
+        return DEFAULT_YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT
+    return timeout if timeout > 0 else DEFAULT_YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT
 
 
 def _map_exception(exc: Exception) -> TranscriptError:
@@ -294,11 +318,12 @@ class TranscriptFetcher:
         client: str = "web",
     ) -> None:
         resolved = get_proxy_url(proxy_url)
+        http_client = _TimeoutSession(_youtube_transcript_api_request_timeout())
         if resolved is not None:
             proxy_cfg = GenericProxyConfig(http_url=resolved, https_url=resolved)
-            self._api = YouTubeTranscriptApi(proxy_config=proxy_cfg)
+            self._api = YouTubeTranscriptApi(proxy_config=proxy_cfg, http_client=http_client)
         else:
-            self._api = YouTubeTranscriptApi()
+            self._api = YouTubeTranscriptApi(http_client=http_client)
         self._proxy_url = resolved
         self._cookies_from_browser = cookies_from_browser
         self._client = client
@@ -346,7 +371,7 @@ class TranscriptFetcher:
     ) -> str:
         """Try yt-dlp then Data API captions fallback."""
         errors = list(initial_errors or [])
-        if self._cookies_from_browser and not skip_ytdlp:
+        if not skip_ytdlp:
             try:
                 return self._fetch_via_ytdlp(video_id, languages)
             except TranscriptFetchError as exc:

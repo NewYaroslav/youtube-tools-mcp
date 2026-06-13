@@ -238,6 +238,7 @@ When installed via `uvx` from an MCP client, the server may run outside your pro
 | `YOUTUBE_API_KEY` | No | Enables YouTube Data API features (metadata, search). Core tools work without it. |
 | `HTTPS_PROXY` / `HTTP_PROXY` | No | HTTP/HTTPS proxy for all outgoing requests (transcripts, metadata, downloads). Checked in order: `HTTPS_PROXY`, `https_proxy`, `HTTP_PROXY`, `http_proxy`. |
 | `YOUTUBE_TOOLS_COOKIES_FROM_BROWSER` | No | Default browser cookie source for `get_youtube_transcript` when the tool call does not pass `cookies_from_browser`. Example: `firefox`. |
+| `YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT` | No | Per-request HTTP timeout in seconds for individual requests made by `youtube-transcript-api`. Defaults to `5`. Keeping this small helps the tool reach yt-dlp/Data API fallbacks before MCP client-level timeouts. |
 | `YOUTUBE_TOOLS_VISION_BASE_URL` | For vision analysis | OpenAI-compatible base URL. Falls back to `OPENAI_BASE_URL`, then `ANTHROPIC_BASE_URL` + `/v1`. |
 | `YOUTUBE_TOOLS_VISION_API_KEY` | For vision analysis | API token. Falls back to `OPENAI_API_KEY`. |
 | `YOUTUBE_TOOLS_VISION_MODEL` | For vision analysis | Vision-capable model. Falls back to `OPENAI_VISION_MODEL`, `ANTHROPIC_TOOL_USE_MODEL`, then `ANTHROPIC_MODEL`. |
@@ -367,6 +368,8 @@ For transcript extraction, you can make cookies the default in the MCP client co
 ```
 
 When this default is set, `get_youtube_transcript` tries the `yt-dlp` subtitle path first instead of waiting for `youtube-transcript-api` to fail before falling back. This helps avoid MCP client call timeouts when YouTube repeatedly blocks unauthenticated transcript requests.
+
+When no browser cookie default is set, `get_youtube_transcript` still applies `YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT` (default: `5` seconds) to each individual HTTP request made by `youtube-transcript-api` and can then continue to the yt-dlp subtitle fallback.
 
 Pass an explicit blank `cookies_from_browser` value to disable the environment default for a single call.
 

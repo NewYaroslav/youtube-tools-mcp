@@ -950,6 +950,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "mcp" },
+    { name = "requests" },
     { name = "youtube-transcript-api" },
     { name = "yt-dlp" },
 ]
@@ -970,6 +971,7 @@ requires-dist = [
     { name = "mcp", specifier = ">=1.12.0,<2.0.0" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-asyncio", marker = "extra == 'dev'" },
+    { name = "requests", specifier = ">=2.31.0" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "youtube-transcript-api", specifier = ">=1.0.0" },
     { name = "yt-dlp", specifier = ">=2024.1.0" },

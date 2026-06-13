@@ -5,6 +5,7 @@ description = "MCP server for YouTube transcripts, text cleanup, and frame extra
 requires-python = ">=3.12"
 dependencies = [
     "mcp>=1.12.0,<2.0.0",
+    "requests>=2.31.0",
     "youtube-transcript-api>=1.0.0",
     "yt-dlp>=2024.1.0",
 ]
