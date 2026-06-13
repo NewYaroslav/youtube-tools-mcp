@@ -16,6 +16,11 @@ from youtube_tools_mcp.youtube.transcript import (
 from ..conftest import SAMPLE_URL, SAMPLE_VIDEO_ID
 
 
+@pytest.fixture(autouse=True)
+def _clear_cookies_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("YOUTUBE_TOOLS_COOKIES_FROM_BROWSER", raising=False)
+
+
 class TestGetYoutubeTranscript:
     @patch("youtube_tools_mcp.tools.transcript.TranscriptFetcher")
     def test_returns_transcript_text(self, mock_fetcher_cls: MagicMock) -> None:
@@ -114,4 +119,36 @@ class TestGetYoutubeTranscript:
             proxy_url="http://proxy:8080",
             cookies_from_browser="firefox",
             client="android",
+        )
+
+    @patch("youtube_tools_mcp.tools.transcript.TranscriptFetcher")
+    def test_uses_cookies_from_environment(self, mock_fetcher_cls: MagicMock, monkeypatch: pytest.MonkeyPatch) -> None:
+        mock_fetcher = mock_fetcher_cls.return_value
+        mock_fetcher.fetch.return_value = "[00:00] Test"
+        monkeypatch.setenv("YOUTUBE_TOOLS_COOKIES_FROM_BROWSER", "firefox")
+
+        get_youtube_transcript(SAMPLE_VIDEO_ID)
+
+        mock_fetcher_cls.assert_called_once_with(
+            proxy_url=None,
+            cookies_from_browser="firefox",
+            client="web",
+        )
+
+    @patch("youtube_tools_mcp.tools.transcript.TranscriptFetcher")
+    def test_explicit_cookies_override_environment(
+        self,
+        mock_fetcher_cls: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        mock_fetcher = mock_fetcher_cls.return_value
+        mock_fetcher.fetch.return_value = "[00:00] Test"
+        monkeypatch.setenv("YOUTUBE_TOOLS_COOKIES_FROM_BROWSER", "firefox")
+
+        get_youtube_transcript(SAMPLE_VIDEO_ID, cookies_from_browser="chrome")
+
+        mock_fetcher_cls.assert_called_once_with(
+            proxy_url=None,
+            cookies_from_browser="chrome",
+            client="web",
         )

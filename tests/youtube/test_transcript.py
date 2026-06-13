@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,9 +22,18 @@ from youtube_tools_mcp.youtube.transcript import (
     TranscriptsDisabledError,
     VideoUnavailableError,
     _parse_json3_events,
+    fetch_transcript_via_ytdlp,
 )
 
 from ..conftest import SAMPLE_VIDEO_ID
+
+
+def _mock_ytdlp_context(mock_ytdl_cls: MagicMock, info: dict) -> MagicMock:
+    mock_ydl = MagicMock()
+    mock_ydl.extract_info.return_value = info
+    mock_ytdl_cls.return_value.__enter__ = MagicMock(return_value=mock_ydl)
+    mock_ytdl_cls.return_value.__exit__ = MagicMock(return_value=False)
+    return mock_ydl
 
 
 class TestTranscriptFetcher:
@@ -121,9 +132,10 @@ class TestTranscriptFetcher:
         mock_api.fetch.side_effect = CouldNotRetrieveTranscript("retrieve error")
 
         fetcher = TranscriptFetcher()
-        with patch(
-            "youtube_tools_mcp.youtube.captions.get_access_token", return_value=None
-        ), pytest.raises(TranscriptFetchError):
+        with (
+            patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value=None),
+            pytest.raises(TranscriptFetchError),
+        ):
             fetcher.fetch(SAMPLE_VIDEO_ID)
 
     @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
@@ -132,9 +144,10 @@ class TestTranscriptFetcher:
         mock_api.fetch.side_effect = RuntimeError("unexpected")
 
         fetcher = TranscriptFetcher()
-        with patch(
-            "youtube_tools_mcp.youtube.captions.get_access_token", return_value=None
-        ), pytest.raises(TranscriptFetchError, match="Unexpected error"):
+        with (
+            patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value=None),
+            pytest.raises(TranscriptFetchError, match="Unexpected error"),
+        ):
             fetcher.fetch(SAMPLE_VIDEO_ID)
 
     @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
@@ -163,10 +176,13 @@ class TestTranscriptFetcher:
         mock_api.fetch.side_effect = CouldNotRetrieveTranscript("blocked")
 
         fetcher = TranscriptFetcher()
-        with patch(
-            "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_captions_api",
-            side_effect=TranscriptFetchError("fallback failed"),
-        ), pytest.raises(TranscriptFetchError, match="blocked"):
+        with (
+            patch(
+                "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_captions_api",
+                side_effect=TranscriptFetchError("fallback failed"),
+            ),
+            pytest.raises(TranscriptFetchError, match="blocked"),
+        ):
             fetcher.fetch(SAMPLE_VIDEO_ID)
 
     @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
@@ -219,7 +235,7 @@ class TestTranscriptFetcher:
             mock_fallback.assert_not_called()
 
     @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
-    def test_fetch_could_not_retrieve_falls_back_to_ytdlp_when_cookies_set(
+    def test_fetch_uses_ytdlp_first_when_cookies_set(
         self,
         mock_api_cls: MagicMock,
     ) -> None:
@@ -235,6 +251,7 @@ class TestTranscriptFetcher:
 
         assert result == "[00:01] ytdlp line"
         mock_ytdlp.assert_called_once()
+        mock_api.fetch.assert_not_called()
 
     @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
     def test_fetch_ytdlp_fallback_fails_then_tries_captions_api(
@@ -288,6 +305,253 @@ class TestParseJson3Events:
         result = _parse_json3_events(events)
         assert len(result) == 1
         assert result[0]["text"] == "only"
+
+
+class TestFetchTranscriptViaYtdlp:
+    @patch("yt_dlp.YoutubeDL")
+    def test_downloads_selected_json3_with_ytdlp_downloader(self, mock_ytdl_cls: MagicMock) -> None:
+        mock_ydl = _mock_ytdlp_context(
+            mock_ytdl_cls,
+            {
+                "automatic_captions": {
+                    "en": [
+                        {"ext": "vtt", "url": "https://subs.example/en.vtt"},
+                        {"ext": "json3", "url": "https://subs.example/en.json3"},
+                    ]
+                },
+                "http_headers": {"User-Agent": "yt-dlp"},
+            },
+        )
+
+        def write_subtitle(filename: str, sub_info: dict, subtitle: bool = False) -> None:
+            assert subtitle is True
+            assert sub_info["url"] == "https://subs.example/en.json3"
+            assert sub_info["http_headers"] == {"User-Agent": "yt-dlp"}
+            Path(filename).write_text(
+                json.dumps(
+                    {
+                        "events": [
+                            {
+                                "tStartMs": 1000,
+                                "dDurationMs": 2500,
+                                "segs": [{"utf8": "Hello "}, {"utf8": "world"}],
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        mock_ydl.dl.side_effect = write_subtitle
+
+        result = fetch_transcript_via_ytdlp(
+            SAMPLE_VIDEO_ID,
+            languages=("en",),
+            proxy="http://proxy:8080",
+            cookies_from_browser="firefox",
+            client="android",
+        )
+
+        assert result == "[00:01] Hello world"
+        opts = mock_ytdl_cls.call_args[0][0]
+        assert opts["proxy"] == "http://proxy:8080"
+        assert opts["cookiesfrombrowser"] == ["firefox"]
+        assert "Android" in opts["user_agent"]
+        mock_ydl.dl.assert_called_once()
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_falls_back_to_first_available_track_and_parses_vtt(self, mock_ytdl_cls: MagicMock) -> None:
+        mock_ydl = _mock_ytdlp_context(
+            mock_ytdl_cls,
+            {
+                "automatic_captions": {
+                    "ru": [{"ext": "vtt", "url": "https://subs.example/ru.vtt"}],
+                },
+            },
+        )
+
+        def write_subtitle(filename: str, sub_info: dict, subtitle: bool = False) -> None:
+            assert subtitle is True
+            assert sub_info["url"] == "https://subs.example/ru.vtt"
+            Path(filename).write_text(
+                "WEBVTT\n\n"
+                "00:00:02.000 --> 00:00:04.500\n"
+                "<c>Hello</c> &amp; welcome\n\n"
+                "00:00:05.000 --> 00:00:06.000\n"
+                "Second line\n",
+                encoding="utf-8",
+            )
+
+        mock_ydl.dl.side_effect = write_subtitle
+
+        result = fetch_transcript_via_ytdlp(SAMPLE_VIDEO_ID, languages=("en",))
+
+        assert result == "[00:02] Hello & welcome\n[00:05] Second line"
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_prefers_human_subtitles_over_automatic_captions(self, mock_ytdl_cls: MagicMock) -> None:
+        mock_ydl = _mock_ytdlp_context(
+            mock_ytdl_cls,
+            {
+                "subtitles": {
+                    "en": [{"ext": "json3", "url": "https://subs.example/human.json3"}],
+                },
+                "automatic_captions": {
+                    "en": [{"ext": "json3", "url": "https://subs.example/auto.json3"}],
+                },
+            },
+        )
+
+        def write_subtitle(filename: str, sub_info: dict, subtitle: bool = False) -> None:
+            assert subtitle is True
+            assert sub_info["url"] == "https://subs.example/human.json3"
+            Path(filename).write_text(
+                json.dumps(
+                    {
+                        "events": [
+                            {
+                                "tStartMs": 3000,
+                                "dDurationMs": 1000,
+                                "segs": [{"utf8": "Human subtitle"}],
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        mock_ydl.dl.side_effect = write_subtitle
+
+        result = fetch_transcript_via_ytdlp(SAMPLE_VIDEO_ID, languages=("en",))
+
+        assert result == "[00:03] Human subtitle"
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_skips_requested_language_with_unsupported_format(self, mock_ytdl_cls: MagicMock) -> None:
+        mock_ydl = _mock_ytdlp_context(
+            mock_ytdl_cls,
+            {
+                "subtitles": {
+                    "ru": [{"ext": "srv3", "url": "https://subs.example/ru.srv3"}],
+                    "en": [{"ext": "json3", "url": "https://subs.example/en.json3"}],
+                },
+            },
+        )
+
+        def write_subtitle(filename: str, sub_info: dict, subtitle: bool = False) -> None:
+            assert subtitle is True
+            assert sub_info["url"] == "https://subs.example/en.json3"
+            Path(filename).write_text(
+                json.dumps(
+                    {
+                        "events": [
+                            {
+                                "tStartMs": 4000,
+                                "dDurationMs": 1000,
+                                "segs": [{"utf8": "English fallback"}],
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        mock_ydl.dl.side_effect = write_subtitle
+
+        result = fetch_transcript_via_ytdlp(SAMPLE_VIDEO_ID, languages=("ru", "en"))
+
+        assert result == "[00:04] English fallback"
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_falls_back_to_auto_when_human_format_is_unsupported(self, mock_ytdl_cls: MagicMock) -> None:
+        mock_ydl = _mock_ytdlp_context(
+            mock_ytdl_cls,
+            {
+                "subtitles": {
+                    "en": [{"ext": "srv3", "url": "https://subs.example/human.srv3"}],
+                },
+                "automatic_captions": {
+                    "en": [{"ext": "json3", "url": "https://subs.example/auto.json3"}],
+                },
+            },
+        )
+
+        def write_subtitle(filename: str, sub_info: dict, subtitle: bool = False) -> None:
+            assert subtitle is True
+            assert sub_info["url"] == "https://subs.example/auto.json3"
+            Path(filename).write_text(
+                json.dumps(
+                    {
+                        "events": [
+                            {
+                                "tStartMs": 5000,
+                                "dDurationMs": 1000,
+                                "segs": [{"utf8": "Automatic fallback"}],
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        mock_ydl.dl.side_effect = write_subtitle
+
+        result = fetch_transcript_via_ytdlp(SAMPLE_VIDEO_ID, languages=("en",))
+
+        assert result == "[00:05] Automatic fallback"
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_prefers_requested_auto_language_over_unrequested_human_language(self, mock_ytdl_cls: MagicMock) -> None:
+        mock_ydl = _mock_ytdlp_context(
+            mock_ytdl_cls,
+            {
+                "subtitles": {
+                    "en": [{"ext": "json3", "url": "https://subs.example/human-en.json3"}],
+                },
+                "automatic_captions": {
+                    "ru": [{"ext": "json3", "url": "https://subs.example/auto-ru.json3"}],
+                },
+            },
+        )
+
+        def write_subtitle(filename: str, sub_info: dict, subtitle: bool = False) -> None:
+            assert subtitle is True
+            assert sub_info["url"] == "https://subs.example/auto-ru.json3"
+            Path(filename).write_text(
+                json.dumps(
+                    {
+                        "events": [
+                            {
+                                "tStartMs": 6000,
+                                "dDurationMs": 1000,
+                                "segs": [{"utf8": "Requested auto"}],
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        mock_ydl.dl.side_effect = write_subtitle
+
+        result = fetch_transcript_via_ytdlp(SAMPLE_VIDEO_ID, languages=("ru",))
+
+        assert result == "[00:06] Requested auto"
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_download_error_is_wrapped(self, mock_ytdl_cls: MagicMock) -> None:
+        mock_ydl = _mock_ytdlp_context(
+            mock_ytdl_cls,
+            {
+                "automatic_captions": {
+                    "en": [{"ext": "json3", "url": "https://subs.example/en.json3"}],
+                },
+            },
+        )
+        mock_ydl.dl.side_effect = RuntimeError("HTTP 429")
+
+        with pytest.raises(TranscriptFetchError, match="HTTP 429"):
+            fetch_transcript_via_ytdlp(SAMPLE_VIDEO_ID, languages=("en",))
 
 
 class TestTranscriptFetcherProxy:
