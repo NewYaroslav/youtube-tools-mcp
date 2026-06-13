@@ -335,10 +335,18 @@ class TranscriptFetcher:
             proxy=self._proxy_url,
         )
 
-    def _try_fallbacks(self, video_id: str, languages: tuple[str, ...], original_exc: Exception) -> str:
+    def _try_fallbacks(
+        self,
+        video_id: str,
+        languages: tuple[str, ...],
+        original_exc: Exception,
+        *,
+        skip_ytdlp: bool = False,
+        initial_errors: list[str] | None = None,
+    ) -> str:
         """Try yt-dlp then Data API captions fallback."""
-        errors: list[str] = []
-        if self._cookies_from_browser:
+        errors = list(initial_errors or [])
+        if self._cookies_from_browser and not skip_ytdlp:
             try:
                 return self._fetch_via_ytdlp(video_id, languages)
             except TranscriptFetchError as exc:
@@ -361,6 +369,13 @@ class TranscriptFetcher:
 
         Returns a string with lines like "[MM:SS] transcript text".
         """
+        ytdlp_first_errors: list[str] = []
+        if self._cookies_from_browser:
+            try:
+                return self._fetch_via_ytdlp(video_id, languages)
+            except TranscriptFetchError as exc:
+                ytdlp_first_errors.append(f"yt-dlp first attempt failed: {exc}")
+
         try:
             return self._fetch_yta(video_id, languages)
         except (TranscriptsDisabled, NoTranscriptFound, InvalidVideoId, VideoUnplayable) as exc:
@@ -368,7 +383,19 @@ class TranscriptFetcher:
             raise _map_exception(exc) from exc
         except CouldNotRetrieveTranscript as exc:
             # IP blocked or other retrievable failure — try fallbacks
-            return self._try_fallbacks(video_id, languages, exc)
+            return self._try_fallbacks(
+                video_id,
+                languages,
+                exc,
+                skip_ytdlp=bool(self._cookies_from_browser),
+                initial_errors=ytdlp_first_errors,
+            )
         except Exception as exc:
             # Unexpected error — try fallbacks
-            return self._try_fallbacks(video_id, languages, exc)
+            return self._try_fallbacks(
+                video_id,
+                languages,
+                exc,
+                skip_ytdlp=bool(self._cookies_from_browser),
+                initial_errors=ytdlp_first_errors,
+            )

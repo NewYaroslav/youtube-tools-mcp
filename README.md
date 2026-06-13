@@ -237,6 +237,7 @@ When installed via `uvx` from an MCP client, the server may run outside your pro
 |---|---|---|
 | `YOUTUBE_API_KEY` | No | Enables YouTube Data API features (metadata, search). Core tools work without it. |
 | `HTTPS_PROXY` / `HTTP_PROXY` | No | HTTP/HTTPS proxy for all outgoing requests (transcripts, metadata, downloads). Checked in order: `HTTPS_PROXY`, `https_proxy`, `HTTP_PROXY`, `http_proxy`. |
+| `YOUTUBE_TOOLS_COOKIES_FROM_BROWSER` | No | Default browser cookie source for `get_youtube_transcript` when the tool call does not pass `cookies_from_browser`. Example: `firefox`. |
 | `YOUTUBE_TOOLS_VISION_BASE_URL` | For vision analysis | OpenAI-compatible base URL. Falls back to `OPENAI_BASE_URL`, then `ANTHROPIC_BASE_URL` + `/v1`. |
 | `YOUTUBE_TOOLS_VISION_API_KEY` | For vision analysis | API token. Falls back to `OPENAI_API_KEY`. |
 | `YOUTUBE_TOOLS_VISION_MODEL` | For vision analysis | Vision-capable model. Falls back to `OPENAI_VISION_MODEL`, `ANTHROPIC_TOOL_USE_MODEL`, then `ANTHROPIC_MODEL`. |
@@ -344,6 +345,30 @@ Supported values include any `yt-dlp` browser syntax, for example:
 
 - `"chrome"`, `"firefox"`, `"edge"`, `"safari"`
 - `"chrome:Profile 1"` for a specific profile
+
+For transcript extraction, you can make cookies the default in the MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "youtube-tools": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/NewYaroslav/youtube-tools-mcp",
+        "youtube-tools-mcp"
+      ],
+      "env": {
+        "YOUTUBE_TOOLS_COOKIES_FROM_BROWSER": "firefox"
+      }
+    }
+  }
+}
+```
+
+When this default is set, `get_youtube_transcript` tries the `yt-dlp` subtitle path first instead of waiting for `youtube-transcript-api` to fail before falling back. This helps avoid MCP client call timeouts when YouTube repeatedly blocks unauthenticated transcript requests.
+
+Pass an explicit blank `cookies_from_browser` value to disable the environment default for a single call.
 
 **Security note:** `cookies_from_browser` instructs `yt-dlp` to read authenticated cookies from your local machine. Use it only on trusted machines with browser profiles you own. Never point it at a browser profile you do not control.
 
