@@ -5,6 +5,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from requests import Session
+from requests.exceptions import Timeout
 from youtube_transcript_api._errors import (
     CouldNotRetrieveTranscript,
     InvalidVideoId,
@@ -22,10 +24,16 @@ from youtube_tools_mcp.youtube.transcript import (
     TranscriptsDisabledError,
     VideoUnavailableError,
     _parse_json3_events,
+    _TimeoutSession,
     fetch_transcript_via_ytdlp,
 )
 
 from ..conftest import SAMPLE_VIDEO_ID
+
+
+@pytest.fixture(autouse=True)
+def _clear_transcript_timeout_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT", raising=False)
 
 
 def _mock_ytdlp_context(mock_ytdl_cls: MagicMock, info: dict) -> MagicMock:
@@ -34,6 +42,32 @@ def _mock_ytdlp_context(mock_ytdl_cls: MagicMock, info: dict) -> MagicMock:
     mock_ytdl_cls.return_value.__enter__ = MagicMock(return_value=mock_ydl)
     mock_ytdl_cls.return_value.__exit__ = MagicMock(return_value=False)
     return mock_ydl
+
+
+class TestTimeoutSession:
+    def test_injects_default_timeout(self) -> None:
+        session = _TimeoutSession(15.0)
+
+        with patch.object(Session, "request") as request:
+            session.request("GET", "https://example.com")
+
+        request.assert_called_once_with(
+            "GET",
+            "https://example.com",
+            timeout=15.0,
+        )
+
+    def test_preserves_explicit_timeout(self) -> None:
+        session = _TimeoutSession(15.0)
+
+        with patch.object(Session, "request") as request:
+            session.request("GET", "https://example.com", timeout=2.0)
+
+        request.assert_called_once_with(
+            "GET",
+            "https://example.com",
+            timeout=2.0,
+        )
 
 
 class TestTranscriptFetcher:
@@ -133,6 +167,10 @@ class TestTranscriptFetcher:
 
         fetcher = TranscriptFetcher()
         with (
+            patch(
+                "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_ytdlp",
+                side_effect=TranscriptFetchError("ytdlp failed"),
+            ),
             patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value=None),
             pytest.raises(TranscriptFetchError),
         ):
@@ -145,13 +183,17 @@ class TestTranscriptFetcher:
 
         fetcher = TranscriptFetcher()
         with (
+            patch(
+                "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_ytdlp",
+                side_effect=TranscriptFetchError("ytdlp failed"),
+            ),
             patch("youtube_tools_mcp.youtube.captions.get_access_token", return_value=None),
             pytest.raises(TranscriptFetchError, match="Unexpected error"),
         ):
             fetcher.fetch(SAMPLE_VIDEO_ID)
 
     @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
-    def test_fetch_could_not_retrieve_falls_back_to_captions_api(
+    def test_fetch_could_not_retrieve_falls_back_to_ytdlp_without_cookies(
         self,
         mock_api_cls: MagicMock,
     ) -> None:
@@ -160,8 +202,32 @@ class TestTranscriptFetcher:
 
         fetcher = TranscriptFetcher()
         with patch(
-            "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_captions_api",
-            return_value="[00:01] fallback line",
+            "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_ytdlp",
+            return_value="[00:01] ytdlp line",
+        ) as mock_ytdlp:
+            result = fetcher.fetch(SAMPLE_VIDEO_ID)
+
+        assert result == "[00:01] ytdlp line"
+        mock_ytdlp.assert_called_once()
+
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    def test_fetch_could_not_retrieve_falls_back_to_captions_api_when_ytdlp_fails(
+        self,
+        mock_api_cls: MagicMock,
+    ) -> None:
+        mock_api = mock_api_cls.return_value
+        mock_api.fetch.side_effect = CouldNotRetrieveTranscript("blocked")
+
+        fetcher = TranscriptFetcher()
+        with (
+            patch(
+                "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_ytdlp",
+                side_effect=TranscriptFetchError("ytdlp failed"),
+            ),
+            patch(
+                "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_captions_api",
+                return_value="[00:01] fallback line",
+            ),
         ):
             result = fetcher.fetch(SAMPLE_VIDEO_ID)
 
@@ -177,6 +243,10 @@ class TestTranscriptFetcher:
 
         fetcher = TranscriptFetcher()
         with (
+            patch(
+                "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_ytdlp",
+                side_effect=TranscriptFetchError("ytdlp failed"),
+            ),
             patch(
                 "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_captions_api",
                 side_effect=TranscriptFetchError("fallback failed"),
@@ -194,13 +264,37 @@ class TestTranscriptFetcher:
         mock_api.fetch.side_effect = RuntimeError("unexpected")
 
         fetcher = TranscriptFetcher()
-        with patch(
-            "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_captions_api",
-            return_value="[00:02] fallback",
+        with (
+            patch(
+                "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_ytdlp",
+                side_effect=TranscriptFetchError("ytdlp failed"),
+            ),
+            patch(
+                "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_captions_api",
+                return_value="[00:02] fallback",
+            ),
         ):
             result = fetcher.fetch(SAMPLE_VIDEO_ID)
 
         assert result == "[00:02] fallback"
+
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    def test_fetch_youtube_transcript_api_timeout_falls_back_to_ytdlp(
+        self,
+        mock_api_cls: MagicMock,
+    ) -> None:
+        mock_api = mock_api_cls.return_value
+        mock_api.fetch.side_effect = Timeout("read timed out")
+
+        fetcher = TranscriptFetcher()
+        with patch(
+            "youtube_tools_mcp.youtube.transcript.TranscriptFetcher._fetch_via_ytdlp",
+            return_value="[00:03] ytdlp fallback",
+        ) as mock_ytdlp:
+            result = fetcher.fetch(SAMPLE_VIDEO_ID)
+
+        assert result == "[00:03] ytdlp fallback"
+        mock_ytdlp.assert_called_once()
 
     @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
     def test_fetch_no_fallback_for_transcripts_disabled(
@@ -568,6 +662,7 @@ class TestTranscriptFetcherProxy:
             "http": "http://127.0.0.1:8080",
             "https": "http://127.0.0.1:8080",
         }
+        assert call_kwargs["http_client"].timeout == 5.0
 
     @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
     def test_init_without_proxy_no_proxy_config(self, mock_api_cls: MagicMock) -> None:
@@ -576,3 +671,12 @@ class TestTranscriptFetcherProxy:
 
         call_kwargs = mock_api_cls.call_args[1]
         assert "proxy_config" not in call_kwargs
+        assert call_kwargs["http_client"].timeout == 5.0
+
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    def test_init_uses_transcript_api_request_timeout_from_environment(self, mock_api_cls: MagicMock) -> None:
+        with patch.dict("os.environ", {"YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT": "3.5"}, clear=True):
+            TranscriptFetcher()
+
+        call_kwargs = mock_api_cls.call_args[1]
+        assert call_kwargs["http_client"].timeout == 3.5
