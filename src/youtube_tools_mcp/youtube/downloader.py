@@ -216,7 +216,7 @@ def download_frame_source(
     out_template = str(output_dir / "%(id)s.%(ext)s")
 
     ydl_opts = {
-        "format": "18/best[height<=480][vcodec!=none]/best[vcodec!=none]",
+        "format": "18/best[height<=480][tbr<=1000][vcodec!=none]/worst[vcodec!=none]",
         "outtmpl": out_template,
         "quiet": True,
         "no_warnings": True,

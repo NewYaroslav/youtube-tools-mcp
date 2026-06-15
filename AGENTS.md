@@ -56,20 +56,20 @@ Input: raw text, optional cleanup flags
 Output: cleaned/normalized text
 Uses: internal text utils (no external API)
 
-### extract_video_frame(url_or_id, timestamp, output_dir=None, return_images=False, download_first=True)
+### extract_video_frame(url_or_id, timestamp, output_dir=None, return_images=False, download_first="auto")
 Input: video URL or ID, timestamp in seconds
 Output: CallToolResult with saved JPEG path by default; base64 JPEG image when return_images=True
-Uses: yt-dlp download to local temp source + ffmpeg by default (no key required)
+Uses: direct YouTube stream first; falls back to yt-dlp low-resolution local source + ffmpeg on stream failure
 
-### extract_video_frames(url_or_id, timestamps, output_dir=None, return_images=False, download_first=True)
+### extract_video_frames(url_or_id, timestamps, output_dir=None, return_images=False, download_first="auto")
 Input: video URL or ID, list of timestamps in seconds
 Output: CallToolResult with saved JPEG paths by default; multiple base64 JPEG images when return_images=True
-Uses: yt-dlp download to local temp source + ffmpeg by default, max 30 frames per call
+Uses: direct YouTube stream first; falls back to yt-dlp low-resolution local source + ffmpeg on stream failure, max 30 frames per call
 
-### extract_frames_every(url_or_id, interval_sec=30, max_frames=10, output_dir=None, return_images=False, download_first=True)
+### extract_frames_every(url_or_id, interval_sec=30, max_frames=10, output_dir=None, return_images=False, download_first="auto")
 Input: video URL or ID, interval in seconds, max frame count
 Output: CallToolResult with saved JPEG paths by default; base64 JPEG images at regular intervals when return_images=True
-Uses: yt-dlp download to local temp source + ffmpeg by default, max 30 frames per call
+Uses: direct YouTube stream first; falls back to yt-dlp low-resolution local source + ffmpeg on stream failure, max 30 frames per call
 
 Frame output paths are resolved to absolute paths inside the MCP server process. Relative output_dir values are relative to the server working directory, not necessarily the caller workspace.
 

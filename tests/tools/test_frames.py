@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, patch
 
@@ -17,7 +18,6 @@ from youtube_tools_mcp.youtube.downloader import DownloadError
 from ..conftest import SAMPLE_VIDEO_ID
 
 _STREAM = "youtube_tools_mcp.tools.frames.get_stream_url"
-_DURATION = "youtube_tools_mcp.tools.frames.get_video_duration"
 _MEDIA_DURATION = "youtube_tools_mcp.tools.frames.get_media_duration"
 _DOWNLOAD = "youtube_tools_mcp.tools.frames.download_frame_source"
 _WHICH = "youtube_tools_mcp.youtube.downloader.shutil.which"
@@ -33,7 +33,7 @@ class TestExtractVideoFrame:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
-            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
@@ -51,7 +51,7 @@ class TestExtractVideoFrame:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
-            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
             patch("youtube_tools_mcp.tools.frames.tempfile.mkdtemp", return_value="/tmp/yt"),
             patch.object(Path, "read_bytes", return_value=b"\xff\xd8fake_jpeg"),
             patch.object(Path, "exists", return_value=True),
@@ -70,7 +70,7 @@ class TestExtractVideoFrame:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
-            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
             patch("youtube_tools_mcp.tools.frames.tempfile.mkdtemp", return_value="/tmp/yt"),
             patch("youtube_tools_mcp.tools.frames.analyze_image_path", return_value="A visible scene"),
             patch.object(Path, "exists", return_value=True),
@@ -92,7 +92,7 @@ class TestExtractVideoFrame:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
-            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
@@ -112,18 +112,65 @@ class TestExtractVideoFrame:
         ):
             extract_video_frame(SAMPLE_VIDEO_ID, 10.0, download_first=False)
 
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_auto_falls_back_to_local_file_when_stream_url_fails(
+        self, mock_which: MagicMock, mock_run: MagicMock
+    ) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, side_effect=DownloadError("no stream")),
+            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")) as mock_download,
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            result = extract_video_frame(SAMPLE_VIDEO_ID, 10.0)
+
+        assert isinstance(result, CallToolResult)
+        mock_download.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert "yt_video_" in cmd[4]
+
     def test_ffmpeg_not_found_raises_mcp_error(self) -> None:
         with (
             patch(_WHICH, return_value=None),
-            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
             patch.object(Path, "mkdir"),
             pytest.raises(McpError, match="ffmpeg is required"),
         ):
             extract_video_frame(SAMPLE_VIDEO_ID, 10.0)
 
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_auto_falls_back_to_local_file_on_stream_timeout(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.side_effect = [
+            subprocess.TimeoutExpired(cmd="ffmpeg", timeout=60.0),
+            MagicMock(returncode=0),
+        ]
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")) as mock_download,
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            result = extract_video_frame(SAMPLE_VIDEO_ID, 10.0)
+
+        assert isinstance(result, CallToolResult)
+        mock_download.assert_called_once()
+        first_cmd = mock_run.call_args_list[0][0][0]
+        second_cmd = mock_run.call_args_list[1][0][0]
+        assert first_cmd[4] == _SAMPLE_STREAM_URL
+        assert "yt_video_" in second_cmd[4]
+
     def test_invalid_ffmpeg_timeout_raises_mcp_error(self) -> None:
         with pytest.raises(McpError, match="ffmpeg_timeout must be positive"):
             extract_video_frame(SAMPLE_VIDEO_ID, 10.0, ffmpeg_timeout=0.0)
+
+    def test_invalid_download_first_mode_raises_mcp_error(self) -> None:
+        with pytest.raises(McpError, match="download_first must be"):
+            extract_video_frame(SAMPLE_VIDEO_ID, 10.0, download_first="sometimes")
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
@@ -211,7 +258,7 @@ class TestExtractVideoFrames:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
-            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
@@ -231,7 +278,7 @@ class TestExtractVideoFrames:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
-            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
             patch("youtube_tools_mcp.tools.frames.tempfile.mkdtemp", return_value="/tmp/yt"),
             patch.object(Path, "read_bytes", return_value=b"\xff\xd8jpeg"),
             patch.object(Path, "exists", return_value=True),
@@ -249,7 +296,7 @@ class TestExtractVideoFrames:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
-            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
             patch("youtube_tools_mcp.tools.frames.tempfile.mkdtemp", return_value="/tmp/yt"),
             patch("youtube_tools_mcp.tools.frames.analyze_image_path", side_effect=["First frame", "Second frame"]),
             patch.object(Path, "exists", return_value=True),
@@ -268,7 +315,7 @@ class TestExtractVideoFrames:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
-            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
@@ -292,6 +339,30 @@ class TestExtractVideoFrames:
             pytest.raises(McpError, match="Failed to get stream URL"),
         ):
             extract_video_frames(SAMPLE_VIDEO_ID, [0.0], download_first=False)
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_auto_falls_back_to_local_file_for_batch_on_stream_timeout(
+        self, mock_which: MagicMock, mock_run: MagicMock
+    ) -> None:
+        mock_run.side_effect = [
+            subprocess.TimeoutExpired(cmd="ffmpeg", timeout=60.0),
+            MagicMock(returncode=0),
+            MagicMock(returncode=0),
+        ]
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")) as mock_download,
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            result = extract_video_frames(SAMPLE_VIDEO_ID, [0.0, 5.0])
+
+        assert isinstance(result, CallToolResult)
+        mock_download.assert_called_once()
+        assert mock_run.call_args_list[0][0][0][4] == _SAMPLE_STREAM_URL
+        assert all("yt_video_" in call[0][0][4] for call in mock_run.call_args_list[1:])
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
@@ -363,8 +434,7 @@ class TestExtractFramesEvery:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
-            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")),
-            patch(_MEDIA_DURATION, return_value=120.0),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
@@ -381,8 +451,7 @@ class TestExtractFramesEvery:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
-            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")),
-            patch(_MEDIA_DURATION, return_value=120.0),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
             patch("youtube_tools_mcp.tools.frames.tempfile.mkdtemp", return_value="/tmp/yt"),
             patch.object(Path, "read_bytes", return_value=b"\xff\xd8jpeg"),
             patch.object(Path, "exists", return_value=True),
@@ -400,8 +469,7 @@ class TestExtractFramesEvery:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
-            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")),
-            patch(_MEDIA_DURATION, return_value=120.0),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
             patch("youtube_tools_mcp.tools.frames.tempfile.mkdtemp", return_value="/tmp/yt"),
             patch("youtube_tools_mcp.tools.frames.analyze_image_path", side_effect=["Frame 0", "Frame 1"]),
             patch.object(Path, "exists", return_value=True),
@@ -420,8 +488,7 @@ class TestExtractFramesEvery:
         mock_run.return_value = MagicMock(returncode=0)
 
         with (
-            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")),
-            patch(_MEDIA_DURATION, return_value=600.0),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 600.0)),
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
@@ -443,8 +510,7 @@ class TestExtractFramesEvery:
 
     def test_video_shorter_than_interval_raises_mcp_error(self) -> None:
         with (
-            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")),
-            patch(_MEDIA_DURATION, return_value=10.0),
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 10.0)),
             pytest.raises(McpError, match="shorter than interval"),
         ):
             extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0)
@@ -455,11 +521,37 @@ class TestExtractFramesEvery:
 
     def test_stream_url_error_raises_mcp_error(self) -> None:
         with (
-            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
-            patch(_DURATION, side_effect=DownloadError("no info")),
-            pytest.raises(McpError, match="Failed to get video info"),
+            patch(_STREAM, side_effect=DownloadError("no stream")),
+            pytest.raises(McpError, match="Failed to get stream URL"),
         ):
             extract_frames_every(SAMPLE_VIDEO_ID, download_first=False)
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_auto_falls_back_to_local_file_for_interval_on_stream_timeout(
+        self, mock_which: MagicMock, mock_run: MagicMock
+    ) -> None:
+        mock_run.side_effect = [
+            subprocess.TimeoutExpired(cmd="ffmpeg", timeout=60.0),
+            MagicMock(returncode=0),
+            MagicMock(returncode=0),
+            MagicMock(returncode=0),
+            MagicMock(returncode=0),
+        ]
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch(_DOWNLOAD, return_value=Path("/tmp/yt_video_/video.mp4")) as mock_download,
+            patch(_MEDIA_DURATION, return_value=120.0),
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=True),
+        ):
+            result = extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, max_frames=4)
+
+        assert isinstance(result, CallToolResult)
+        mock_download.assert_called_once()
+        assert mock_run.call_args_list[0][0][0][4] == _SAMPLE_STREAM_URL
+        assert all("yt_video_" in call[0][0][4] for call in mock_run.call_args_list[1:])
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
@@ -468,16 +560,12 @@ class TestExtractFramesEvery:
 
         with (
             patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)) as mock_stream,
-            patch(_DURATION, return_value=120.0) as mock_duration,
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
             extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, proxy="http://proxy:8080", download_first=False)
 
         mock_stream.assert_called_once_with(
-            SAMPLE_VIDEO_ID, proxy="http://proxy:8080", cookies_from_browser=None, client="web"
-        )
-        mock_duration.assert_called_once_with(
             SAMPLE_VIDEO_ID, proxy="http://proxy:8080", cookies_from_browser=None, client="web"
         )
 
@@ -488,14 +576,12 @@ class TestExtractFramesEvery:
 
         with (
             patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)) as mock_stream,
-            patch(_DURATION, return_value=120.0) as mock_duration,
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
             extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, cookies_from_browser="edge", download_first=False)
 
         mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser="edge", client="web")
-        mock_duration.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser="edge", client="web")
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
@@ -504,14 +590,12 @@ class TestExtractFramesEvery:
 
         with (
             patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)) as mock_stream,
-            patch(_DURATION, return_value=120.0) as mock_duration,
             patch.object(Path, "mkdir"),
             patch.object(Path, "exists", return_value=True),
         ):
             extract_frames_every(SAMPLE_VIDEO_ID, interval_sec=30.0, client="android", download_first=False)
 
         mock_stream.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser=None, client="android")
-        mock_duration.assert_called_once_with(SAMPLE_VIDEO_ID, proxy=None, cookies_from_browser=None, client="android")
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")

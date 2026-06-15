@@ -381,7 +381,7 @@ class TestDownloadFrameSource:
             result = download_frame_source("dQw4w9WgXcQ", output_dir)
 
         opts = mock_ydl_cls.call_args[0][0]
-        assert opts["format"] == "18/best[height<=480][vcodec!=none]/best[vcodec!=none]"
+        assert opts["format"] == "18/best[height<=480][tbr<=1000][vcodec!=none]/worst[vcodec!=none]"
         assert opts["noplaylist"] is True
         assert result.name == "dQw4w9WgXcQ.mp4"
 
