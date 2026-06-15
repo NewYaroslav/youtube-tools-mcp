@@ -13,7 +13,7 @@ from youtube_tools_mcp.vision import VisionAPIError, VisionConfigError, analyze_
 from youtube_tools_mcp.youtube.downloader import (
     DownloadError,
     FFmpegNotFoundError,
-    download_video,
+    download_frame_source,
     extract_frame,
     extract_frames_batch,
     get_media_duration,
@@ -61,9 +61,12 @@ def _frames_result_text(
     timestamps: list[float],
     video_id: str,
     output_dir: Path,
+    output_dir_note: str | None = None,
 ) -> TextContent:
     lines = [f"Extracted {len(paths)} frame(s) from video {video_id}"]
     lines.append(f"Output directory: {output_dir}")
+    if output_dir_note is not None:
+        lines.append(output_dir_note)
     lines.append("")
     lines.append("Frame files:")
     for p, ts in zip(paths, timestamps, strict=True):
@@ -79,8 +82,19 @@ def _frames_result_text(
 
 def _get_save_dir(output_dir: str | None, video_id: str) -> Path:
     save_dir = Path(output_dir) if output_dir else _DEFAULT_OUTPUT_DIR / video_id
+    save_dir = save_dir.expanduser().resolve(strict=False)
     save_dir.mkdir(parents=True, exist_ok=True)
     return save_dir
+
+
+def _output_dir_note(output_dir: str | None) -> str | None:
+    if output_dir is None:
+        return None
+    path = Path(output_dir).expanduser()
+    if path.is_absolute():
+        return None
+    cwd = Path.cwd().resolve(strict=False)
+    return f"Relative output_dir was resolved against MCP server working directory: {cwd}"
 
 
 def _analyze_frames(
@@ -110,7 +124,7 @@ def _resolve_video_source(
     if download_first:
         temp_dir = Path(tempfile.mkdtemp(prefix="yt_video_"))
         try:
-            video_path = download_video(
+            video_path = download_frame_source(
                 video_id,
                 temp_dir,
                 proxy=proxy,
@@ -121,7 +135,7 @@ def _resolve_video_source(
         except DownloadError as exc:
             shutil.rmtree(temp_dir, ignore_errors=True)
             raise _err(
-                f"Failed to download video: {exc}. "
+                f"Failed to download frame source: {exc}. "
                 "If YouTube returned a bot-check, captcha, sign-in, or anti-abuse message, "
                 "retry the same tool call with the proxy parameter, "
                 "or with a different proxy if proxy was already used, "
@@ -162,7 +176,7 @@ def extract_video_frame(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
-    download_first: bool = False,
+    download_first: bool = True,
 ) -> CallToolResult:
     """Extract a single frame from a YouTube video at a specific timestamp.
 
@@ -187,9 +201,9 @@ def extract_video_frame(
             Examples: "chrome", "firefox", "edge", "safari".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
-        download_first: Download the full video to a temporary file first,
+        download_first: Download a small local video source to a temporary file first,
             then extract frames locally. Slower, but bypasses CDN stream
-            restrictions when direct streaming fails. Defaults to False.
+            restrictions when direct streaming fails. Defaults to True.
 
     Returns:
         MCP result with either TextContent (file path) or ImageContent (inline).
@@ -273,7 +287,17 @@ def extract_video_frame(
                     ffmpeg_timeout=ffmpeg_timeout,
                     proxy=proxy,
                 )
-                return CallToolResult(content=[_frames_result_text([out_path], [timestamp], video_id, save_dir)])
+                return CallToolResult(
+                    content=[
+                        _frames_result_text(
+                            [out_path],
+                            [timestamp],
+                            video_id,
+                            save_dir,
+                            _output_dir_note(output_dir),
+                        )
+                    ]
+                )
             except FFmpegNotFoundError as exc:
                 raise _err(str(exc)) from exc
             except DownloadError as exc:
@@ -305,7 +329,7 @@ def extract_video_frames(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
-    download_first: bool = False,
+    download_first: bool = True,
 ) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
@@ -330,8 +354,8 @@ def extract_video_frames(
             Examples: "chrome", "firefox", "edge", "safari".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
-        download_first: Download the full video to a temporary file first,
-            then extract frames locally. Defaults to False.
+        download_first: Download a small local video source to a temporary file first,
+            then extract frames locally. Defaults to True.
 
     Returns:
         MCP result with either TextContent (file paths) or ImageContent list (inline).
@@ -421,7 +445,17 @@ def extract_video_frames(
                     ffmpeg_timeout=ffmpeg_timeout,
                     proxy=proxy,
                 )
-                return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
+                return CallToolResult(
+                    content=[
+                        _frames_result_text(
+                            paths,
+                            timestamps,
+                            video_id,
+                            save_dir,
+                            _output_dir_note(output_dir),
+                        )
+                    ]
+                )
             except FFmpegNotFoundError as exc:
                 raise _err(str(exc)) from exc
             except DownloadError as exc:
@@ -454,7 +488,7 @@ def extract_frames_every(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
-    download_first: bool = False,
+    download_first: bool = True,
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
@@ -480,8 +514,8 @@ def extract_frames_every(
             Examples: "chrome", "firefox", "edge", "safari".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
-        download_first: Download the full video to a temporary file first,
-            then extract frames locally. Defaults to False.
+        download_first: Download a small local video source to a temporary file first,
+            then extract frames locally. Defaults to True.
 
     Returns:
         MCP result with either TextContent (file paths) or ImageContent list (inline).
@@ -595,7 +629,17 @@ def extract_frames_every(
                     ffmpeg_timeout=ffmpeg_timeout,
                     proxy=proxy,
                 )
-                return CallToolResult(content=[_frames_result_text(paths, timestamps, video_id, save_dir)])
+                return CallToolResult(
+                    content=[
+                        _frames_result_text(
+                            paths,
+                            timestamps,
+                            video_id,
+                            save_dir,
+                            _output_dir_note(output_dir),
+                        )
+                    ]
+                )
             except FFmpegNotFoundError as exc:
                 raise _err(str(exc)) from exc
             except DownloadError as exc:

@@ -12,6 +12,7 @@ from youtube_tools_mcp.youtube.downloader import (
     FFmpegNotFoundError,
     StreamUrlError,
     download_audio,
+    download_frame_source,
     download_video,
     extract_frame,
     extract_frames_batch,
@@ -364,6 +365,49 @@ class TestExtractFramesBatch:
             pytest.raises(FFmpegNotFoundError),
         ):
             extract_frames_batch("https://stream.url/video.mp4", [0.0], Path("/tmp/frames"))
+
+
+class TestDownloadFrameSource:
+    @patch("yt_dlp.YoutubeDL")
+    def test_downloads_small_local_source(self, mock_ydl_cls: MagicMock) -> None:
+        mock_ydl = MagicMock()
+        mock_ydl_cls.return_value.__enter__ = MagicMock(return_value=mock_ydl)
+        mock_ydl_cls.return_value.__exit__ = MagicMock(return_value=False)
+        mock_ydl.extract_info.return_value = {"id": "dQw4w9WgXcQ", "ext": "mp4"}
+        mock_ydl.prepare_filename.return_value = "/tmp/frames/dQw4w9WgXcQ.mp4"
+
+        output_dir = Path("/tmp/frames")
+        with patch.object(Path, "exists", return_value=True), patch.object(Path, "mkdir"):
+            result = download_frame_source("dQw4w9WgXcQ", output_dir)
+
+        opts = mock_ydl_cls.call_args[0][0]
+        assert opts["format"] == "18/best[height<=480][vcodec!=none]/best[vcodec!=none]"
+        assert opts["noplaylist"] is True
+        assert result.name == "dQw4w9WgXcQ.mp4"
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_uses_proxy_cookies_and_client(self, mock_ydl_cls: MagicMock) -> None:
+        mock_ydl = MagicMock()
+        mock_ydl_cls.return_value.__enter__ = MagicMock(return_value=mock_ydl)
+        mock_ydl_cls.return_value.__exit__ = MagicMock(return_value=False)
+        mock_ydl.extract_info.return_value = {"id": "dQw4w9WgXcQ", "ext": "mp4"}
+        mock_ydl.prepare_filename.return_value = "/tmp/frames/dQw4w9WgXcQ.mp4"
+
+        output_dir = Path("/tmp/frames")
+        with patch.object(Path, "exists", return_value=True), patch.object(Path, "mkdir"):
+            download_frame_source(
+                "dQw4w9WgXcQ",
+                output_dir,
+                proxy="http://proxy:8080",
+                cookies_from_browser="firefox",
+                client="ios",
+            )
+
+        opts = mock_ydl_cls.call_args[0][0]
+        assert opts["proxy"] == "http://proxy:8080"
+        assert opts["cookiesfrombrowser"] == ["firefox"]
+        assert "iPhone" in opts["user_agent"]
+        assert opts["extractor_args"]["youtube"]["player_client"] == "ios"
 
 
 class TestDownloadVideo:

@@ -75,6 +75,11 @@ Frame parameters:
 | `jpeg_quality` | `5` | ffmpeg JPEG quality, where `2` is best and `31` is worst |
 | `vision_prompt` | default image description prompt | Optional prompt for `vision_analysis=true` |
 | `vision_model` | configured env model | Optional model override for `vision_analysis=true` |
+| `download_first` | `true` | Download a small local video source before frame extraction. Set `false` to extract directly from a YouTube stream |
+
+Frame extraction resolves `output_dir` to an absolute path inside the MCP server process. If you pass a relative directory, it is resolved against the MCP server's working directory, which may differ from the agent workspace. The tool response includes the resolved output directory and a note when relative path resolution was used.
+
+By default, frame tools download a small local video source first, then run ffmpeg against that file. This avoids common Windows/network timeouts caused by asking ffmpeg to seek directly through YouTube CDN streams. For quick direct-stream attempts, set `download_first=false`.
 
 `read_image_file(path)` reads an existing local `.jpg`, `.jpeg`, `.png`, `.gif`, or `.webp` file and returns it as inline MCP image content. Set `vision_analysis=true`, or call `analyze_image_file(path)`, to return a text description instead. Unicode paths are supported, including Cyrillic filenames and directories.
 
