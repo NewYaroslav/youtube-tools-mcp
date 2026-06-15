@@ -76,7 +76,7 @@ def _is_ffmpeg_input_error(stderr: str) -> bool:
     input_markers = (
         "error opening input",
         "error opening input file",
-        "failed to open",
+        "failed to open input",
         "failed to resolve hostname",
         "server returned",
         "http error",

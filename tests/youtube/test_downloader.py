@@ -263,6 +263,19 @@ class TestExtractFrame:
             extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
 
     @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_failed_to_open_output_is_output_error(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Failed to open output file /nope/frame.jpg"
+        mock_subprocess.run.return_value = mock_result
+        mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
+
+        with pytest.raises(FFmpegOutputError, match="ffmpeg failed"):
+            extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
+
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
     def test_raises_ffmpeg_error_on_timeout(self, mock_shutil: MagicMock) -> None:
         mock_shutil.which.return_value = "/usr/bin/ffmpeg"
 
