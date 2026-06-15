@@ -143,6 +143,36 @@ class TestExtractVideoFrame:
 
     @patch(_RUN)
     @patch(_WHICH, return_value="ffmpeg")
+    def test_auto_does_not_fallback_on_output_error(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        mock_run.return_value = MagicMock(returncode=0)
+
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 120.0)),
+            patch(_DOWNLOAD) as mock_download,
+            patch.object(Path, "mkdir"),
+            patch.object(Path, "exists", return_value=False),
+            pytest.raises(McpError, match="did not produce output"),
+        ):
+            extract_video_frame(SAMPLE_VIDEO_ID, 10.0)
+
+        mock_download.assert_not_called()
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
+    def test_timestamp_beyond_duration_does_not_fallback(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
+        with (
+            patch(_STREAM, return_value=(_SAMPLE_STREAM_URL, 9.0)),
+            patch(_DOWNLOAD) as mock_download,
+            patch.object(Path, "mkdir"),
+            pytest.raises(McpError, match="timestamp 10 exceeds video duration 9.0s"),
+        ):
+            extract_video_frame(SAMPLE_VIDEO_ID, 10.0)
+
+        mock_run.assert_not_called()
+        mock_download.assert_not_called()
+
+    @patch(_RUN)
+    @patch(_WHICH, return_value="ffmpeg")
     def test_auto_falls_back_to_local_file_on_stream_timeout(self, mock_which: MagicMock, mock_run: MagicMock) -> None:
         mock_run.side_effect = [
             subprocess.TimeoutExpired(cmd="ffmpeg", timeout=60.0),

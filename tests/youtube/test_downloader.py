@@ -9,7 +9,9 @@ import pytest
 from youtube_tools_mcp.youtube.downloader import (
     DownloadError,
     FFmpegError,
+    FFmpegInputError,
     FFmpegNotFoundError,
+    FFmpegOutputError,
     StreamUrlError,
     download_audio,
     download_frame_source,
@@ -235,6 +237,32 @@ class TestExtractFrame:
             extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
 
     @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_nonzero_input_error_raises_input_error(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Error opening input file https://stream.url/video.mp4"
+        mock_subprocess.run.return_value = mock_result
+        mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
+
+        with pytest.raises(FFmpegInputError, match="ffmpeg failed"):
+            extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
+
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_nonzero_output_error_raises_output_error(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Permission denied"
+        mock_subprocess.run.return_value = mock_result
+        mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
+
+        with pytest.raises(FFmpegOutputError, match="ffmpeg failed"):
+            extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
+
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
     def test_raises_ffmpeg_error_on_timeout(self, mock_shutil: MagicMock) -> None:
         mock_shutil.which.return_value = "/usr/bin/ffmpeg"
 
@@ -242,7 +270,7 @@ class TestExtractFrame:
             mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
             mock_subprocess.run.side_effect = subprocess.TimeoutExpired(cmd="ffmpeg", timeout=30)
 
-            with pytest.raises(FFmpegError, match="timed out after 60.0s"):
+            with pytest.raises(FFmpegInputError, match="timed out after 60.0s"):
                 extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
 
     @patch("youtube_tools_mcp.youtube.downloader.shutil")
@@ -256,7 +284,7 @@ class TestExtractFrame:
 
         with (
             patch.object(Path, "exists", return_value=False),
-            pytest.raises(FFmpegError, match="did not produce output"),
+            pytest.raises(FFmpegOutputError, match="did not produce output"),
         ):
             extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
 

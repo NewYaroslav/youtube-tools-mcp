@@ -15,6 +15,8 @@ from youtube_tools_mcp.utils.url import extract_video_id
 from youtube_tools_mcp.vision import VisionAPIError, VisionConfigError, analyze_image_path
 from youtube_tools_mcp.youtube.downloader import (
     DownloadError,
+    FFmpegError,
+    FFmpegInputError,
     FFmpegNotFoundError,
     download_frame_source,
     extract_frame,
@@ -107,6 +109,14 @@ def _output_dir_note(output_dir: str | None) -> str | None:
         return None
     cwd = Path.cwd().resolve(strict=False)
     return f"Relative output_dir was resolved against MCP server working directory: {cwd}"
+
+
+def _validate_timestamps_with_duration(timestamps: list[float], duration: float | None) -> None:
+    if duration is None:
+        return
+    for timestamp in timestamps:
+        if timestamp > duration:
+            raise _err(f"timestamp {timestamp:g} exceeds video duration {duration:.1f}s")
 
 
 def _analyze_frames(
@@ -230,6 +240,8 @@ def _run_with_video_source[T](
     except FFmpegNotFoundError:
         raise
     except DownloadError as direct_exc:
+        if isinstance(direct_exc, FFmpegError) and not isinstance(direct_exc, FFmpegInputError):
+            raise
         try:
             return _run_source_operation(
                 _resolve_downloaded_video_source(video_id, proxy, cookies_from_browser, client),
@@ -305,6 +317,7 @@ def extract_video_frame(
 
     def _with_source(source: _VideoSource) -> CallToolResult:
         video_source = source.value
+        _validate_timestamps_with_duration([timestamp], source.duration)
         if vision_analysis:
             tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frame_analysis_"))
             try:
@@ -435,6 +448,7 @@ def extract_video_frames(
 
     def _with_source(source: _VideoSource) -> CallToolResult:
         video_source = source.value
+        _validate_timestamps_with_duration(timestamps, source.duration)
         if vision_analysis:
             tmp_dir = Path(tempfile.mkdtemp(prefix="yt_frames_analysis_"))
             try:

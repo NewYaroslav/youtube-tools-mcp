@@ -16,6 +16,14 @@ class FFmpegError(DownloadError):
     """ffmpeg subprocess failed."""
 
 
+class FFmpegInputError(FFmpegError):
+    """ffmpeg could not read or seek the input stream."""
+
+
+class FFmpegOutputError(FFmpegError):
+    """ffmpeg failed due to output path, codec, or local processing."""
+
+
 class FFmpegNotFoundError(FFmpegError):
     """ffmpeg is not installed or not on PATH."""
 
@@ -61,6 +69,25 @@ def _check_ffmpeg() -> None:
         "(Windows: winget install ffmpeg, choco install ffmpeg, or scoop install ffmpeg)"
     )
     raise FFmpegNotFoundError(msg)
+
+
+def _is_ffmpeg_input_error(stderr: str) -> bool:
+    lowered = stderr.lower()
+    input_markers = (
+        "error opening input",
+        "error opening input file",
+        "failed to open",
+        "failed to resolve hostname",
+        "server returned",
+        "http error",
+        "tls",
+        "connection",
+        "input/output error",
+        "error reading",
+        "end of file",
+        "invalid data found when processing input",
+    )
+    return any(marker in lowered for marker in input_markers)
 
 
 def get_stream_url(
@@ -296,13 +323,16 @@ def extract_frame(
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=ffmpeg_timeout, env=env)
     except subprocess.TimeoutExpired as exc:
-        raise FFmpegError(f"ffmpeg timed out after {ffmpeg_timeout}s at timestamp {timestamp}") from exc
+        raise FFmpegInputError(f"ffmpeg timed out after {ffmpeg_timeout}s at timestamp {timestamp}") from exc
 
     if result.returncode != 0:
-        raise FFmpegError(f"ffmpeg failed (exit {result.returncode}): {result.stderr.strip()}")
+        msg = f"ffmpeg failed (exit {result.returncode}): {result.stderr.strip()}"
+        if _is_ffmpeg_input_error(result.stderr):
+            raise FFmpegInputError(msg)
+        raise FFmpegOutputError(msg)
 
     if not output_path.exists():
-        raise FFmpegError(f"ffmpeg did not produce output file: {output_path}")
+        raise FFmpegOutputError(f"ffmpeg did not produce output file: {output_path}")
 
     return output_path
 
