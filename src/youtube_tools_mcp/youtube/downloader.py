@@ -16,6 +16,14 @@ class FFmpegError(DownloadError):
     """ffmpeg subprocess failed."""
 
 
+class FFmpegInputError(FFmpegError):
+    """ffmpeg could not read or seek the input stream."""
+
+
+class FFmpegOutputError(FFmpegError):
+    """ffmpeg failed due to output path, codec, or local processing."""
+
+
 class FFmpegNotFoundError(FFmpegError):
     """ffmpeg is not installed or not on PATH."""
 
@@ -61,6 +69,25 @@ def _check_ffmpeg() -> None:
         "(Windows: winget install ffmpeg, choco install ffmpeg, or scoop install ffmpeg)"
     )
     raise FFmpegNotFoundError(msg)
+
+
+def _is_ffmpeg_input_error(stderr: str) -> bool:
+    lowered = stderr.lower()
+    input_markers = (
+        "error opening input",
+        "error opening input file",
+        "failed to open input",
+        "failed to resolve hostname",
+        "server returned",
+        "http error",
+        "tls",
+        "connection",
+        "input/output error",
+        "error reading",
+        "end of file",
+        "invalid data found when processing input",
+    )
+    return any(marker in lowered for marker in input_markers)
 
 
 def get_stream_url(
@@ -197,6 +224,58 @@ def get_media_duration(
         raise FFmpegError(f"ffprobe returned invalid duration: {result.stdout!r}") from exc
 
 
+def download_frame_source(
+    video_id: str,
+    output_dir: Path,
+    proxy: str | None = None,
+    cookies_from_browser: str | None = None,
+    client: str = "web",
+) -> Path:
+    """Download a small local video file suitable for frame extraction.
+
+    This intentionally avoids the general video downloader's merged 720p default.
+    For frame extraction we only need a local media file ffmpeg can seek through.
+    """
+    import yt_dlp
+
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    out_template = str(output_dir / "%(id)s.%(ext)s")
+
+    ydl_opts = {
+        "format": "18/best[height<=480][tbr<=1000][vcodec!=none]/worst[vcodec!=none]",
+        "outtmpl": out_template,
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+    }
+    resolved = get_proxy_url(proxy)
+    if resolved:
+        ydl_opts["proxy"] = resolved
+    if cookies_from_browser:
+        ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
+    _apply_client_options(ydl_opts, client)
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            if info is None:
+                raise VideoDownloadError(f"yt-dlp returned no info for video {video_id}")
+            filename = ydl.prepare_filename(info)
+            path = Path(filename)
+            if not path.exists():
+                candidates = [p for p in output_dir.iterdir() if p.is_file()]
+                if candidates:
+                    path = max(candidates, key=lambda f: f.stat().st_mtime)
+                else:
+                    raise VideoDownloadError(f"Downloaded frame source not found in {output_dir}")
+            return path
+    except VideoDownloadError:
+        raise
+    except Exception as exc:
+        raise VideoDownloadError(f"Failed to download frame source: {exc}") from exc
+
+
 def extract_frame(
     stream_url: str,
     timestamp: float,
@@ -244,13 +323,16 @@ def extract_frame(
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=ffmpeg_timeout, env=env)
     except subprocess.TimeoutExpired as exc:
-        raise FFmpegError(f"ffmpeg timed out after {ffmpeg_timeout}s at timestamp {timestamp}") from exc
+        raise FFmpegInputError(f"ffmpeg timed out after {ffmpeg_timeout}s at timestamp {timestamp}") from exc
 
     if result.returncode != 0:
-        raise FFmpegError(f"ffmpeg failed (exit {result.returncode}): {result.stderr.strip()}")
+        msg = f"ffmpeg failed (exit {result.returncode}): {result.stderr.strip()}"
+        if _is_ffmpeg_input_error(result.stderr):
+            raise FFmpegInputError(msg)
+        raise FFmpegOutputError(msg)
 
     if not output_path.exists():
-        raise FFmpegError(f"ffmpeg did not produce output file: {output_path}")
+        raise FFmpegOutputError(f"ffmpeg did not produce output file: {output_path}")
 
     return output_path
 

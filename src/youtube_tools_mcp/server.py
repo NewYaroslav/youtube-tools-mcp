@@ -191,7 +191,7 @@ def extract_video_frame(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
-    download_first: bool = False,
+    download_first: bool | str = "auto",
 ) -> CallToolResult:
     """Extract a single frame from a YouTube video at a specific timestamp.
 
@@ -223,9 +223,9 @@ def extract_video_frame(
             "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
-        download_first: Download the full video locally before extracting frames.
-            Slower but bypasses CDN stream restrictions when direct streaming fails.
-            Defaults to False.
+        download_first: "auto" (default) tries direct stream extraction first and
+            falls back to a local low-resolution source on stream failure. True or
+            "always" downloads first. False or "never" uses direct stream only.
     """
     return _extract_video_frame(
         url_or_id=url_or_id,
@@ -264,7 +264,7 @@ def extract_video_frames(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
-    download_first: bool = False,
+    download_first: bool | str = "auto",
 ) -> CallToolResult:
     """Extract multiple frames from a YouTube video at specified timestamps.
 
@@ -296,9 +296,9 @@ def extract_video_frames(
             "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
-        download_first: Download the full video locally before extracting frames.
-            Slower but bypasses CDN stream restrictions when direct streaming fails.
-            Defaults to False.
+        download_first: "auto" (default) tries direct stream extraction first and
+            falls back to a local low-resolution source on stream failure. True or
+            "always" downloads first. False or "never" uses direct stream only.
     """
     return _extract_video_frames(
         url_or_id=url_or_id,
@@ -338,7 +338,7 @@ def extract_frames_every(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
-    download_first: bool = False,
+    download_first: bool | str = "auto",
 ) -> CallToolResult:
     """Extract frames from a YouTube video at regular intervals.
 
@@ -371,9 +371,9 @@ def extract_frames_every(
             "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
-        download_first: Download the full video locally before extracting frames.
-            Slower but bypasses CDN stream restrictions when direct streaming fails.
-            Defaults to False.
+        download_first: "auto" (default) tries direct stream extraction first and
+            falls back to a local low-resolution source on stream failure. True or
+            "always" downloads first. False or "never" uses direct stream only.
     """
     return _extract_frames_every(
         url_or_id=url_or_id,

@@ -20,7 +20,7 @@ youtube-tools-mcp/
     youtube/
       __init__.py
       transcript.py        # TranscriptFetcher (youtube-transcript-api wrapper)
-      downloader.py        # get_stream_url, get_video_duration, extract_frame, extract_frames_batch, download_video, download_audio
+      downloader.py        # get_stream_url, get_video_duration, download_frame_source, extract_frame, extract_frames_batch, download_video, download_audio
       client.py            # YouTube Data API client (optional YOUTUBE_API_KEY) — not yet implemented
     utils/
       __init__.py
@@ -56,20 +56,22 @@ Input: raw text, optional cleanup flags
 Output: cleaned/normalized text
 Uses: internal text utils (no external API)
 
-### extract_video_frame(url_or_id, timestamp)
+### extract_video_frame(url_or_id, timestamp, output_dir=None, return_images=False, download_first="auto")
 Input: video URL or ID, timestamp in seconds
-Output: CallToolResult with base64 JPEG image
-Uses: yt-dlp + ffmpeg (no key required)
+Output: CallToolResult with saved JPEG path by default; base64 JPEG image when return_images=True
+Uses: direct YouTube stream first; falls back to yt-dlp low-resolution local source + ffmpeg on stream failure
 
-### extract_video_frames(url_or_id, timestamps)
+### extract_video_frames(url_or_id, timestamps, output_dir=None, return_images=False, download_first="auto")
 Input: video URL or ID, list of timestamps in seconds
-Output: CallToolResult with multiple base64 JPEG images
-Uses: yt-dlp + ffmpeg, max 30 frames per call
+Output: CallToolResult with saved JPEG paths by default; multiple base64 JPEG images when return_images=True
+Uses: direct YouTube stream first; falls back to yt-dlp low-resolution local source + ffmpeg on stream failure, max 30 frames per call
 
-### extract_frames_every(url_or_id, interval_sec=30, max_frames=10)
+### extract_frames_every(url_or_id, interval_sec=30, max_frames=10, output_dir=None, return_images=False, download_first="auto")
 Input: video URL or ID, interval in seconds, max frame count
-Output: CallToolResult with base64 JPEG images at regular intervals
-Uses: yt-dlp + ffmpeg, max 30 frames per call
+Output: CallToolResult with saved JPEG paths by default; base64 JPEG images at regular intervals when return_images=True
+Uses: direct YouTube stream first; falls back to yt-dlp low-resolution local source + ffmpeg on stream failure, max 30 frames per call
+
+Frame output paths are resolved to absolute paths inside the MCP server process. Relative output_dir values are relative to the server working directory, not necessarily the caller workspace.
 
 ### download_video(url_or_id, output_dir=".", quality="720p")
 Input: video URL or ID, output directory, quality preset ("best", "720p", "480p", "360p")

@@ -9,9 +9,12 @@ import pytest
 from youtube_tools_mcp.youtube.downloader import (
     DownloadError,
     FFmpegError,
+    FFmpegInputError,
     FFmpegNotFoundError,
+    FFmpegOutputError,
     StreamUrlError,
     download_audio,
+    download_frame_source,
     download_video,
     extract_frame,
     extract_frames_batch,
@@ -234,6 +237,45 @@ class TestExtractFrame:
             extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
 
     @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_nonzero_input_error_raises_input_error(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Error opening input file https://stream.url/video.mp4"
+        mock_subprocess.run.return_value = mock_result
+        mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
+
+        with pytest.raises(FFmpegInputError, match="ffmpeg failed"):
+            extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
+
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_nonzero_output_error_raises_output_error(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Permission denied"
+        mock_subprocess.run.return_value = mock_result
+        mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
+
+        with pytest.raises(FFmpegOutputError, match="ffmpeg failed"):
+            extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
+
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
+    @patch("youtube_tools_mcp.youtube.downloader.subprocess")
+    def test_failed_to_open_output_is_output_error(self, mock_subprocess: MagicMock, mock_shutil: MagicMock) -> None:
+        mock_shutil.which.return_value = "/usr/bin/ffmpeg"
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Failed to open output file /nope/frame.jpg"
+        mock_subprocess.run.return_value = mock_result
+        mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
+
+        with pytest.raises(FFmpegOutputError, match="ffmpeg failed"):
+            extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
+
+    @patch("youtube_tools_mcp.youtube.downloader.shutil")
     def test_raises_ffmpeg_error_on_timeout(self, mock_shutil: MagicMock) -> None:
         mock_shutil.which.return_value = "/usr/bin/ffmpeg"
 
@@ -241,7 +283,7 @@ class TestExtractFrame:
             mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
             mock_subprocess.run.side_effect = subprocess.TimeoutExpired(cmd="ffmpeg", timeout=30)
 
-            with pytest.raises(FFmpegError, match="timed out after 60.0s"):
+            with pytest.raises(FFmpegInputError, match="timed out after 60.0s"):
                 extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
 
     @patch("youtube_tools_mcp.youtube.downloader.shutil")
@@ -255,7 +297,7 @@ class TestExtractFrame:
 
         with (
             patch.object(Path, "exists", return_value=False),
-            pytest.raises(FFmpegError, match="did not produce output"),
+            pytest.raises(FFmpegOutputError, match="did not produce output"),
         ):
             extract_frame("https://stream.url/video.mp4", 10.0, Path("/tmp/frame.jpg"))
 
@@ -364,6 +406,49 @@ class TestExtractFramesBatch:
             pytest.raises(FFmpegNotFoundError),
         ):
             extract_frames_batch("https://stream.url/video.mp4", [0.0], Path("/tmp/frames"))
+
+
+class TestDownloadFrameSource:
+    @patch("yt_dlp.YoutubeDL")
+    def test_downloads_small_local_source(self, mock_ydl_cls: MagicMock) -> None:
+        mock_ydl = MagicMock()
+        mock_ydl_cls.return_value.__enter__ = MagicMock(return_value=mock_ydl)
+        mock_ydl_cls.return_value.__exit__ = MagicMock(return_value=False)
+        mock_ydl.extract_info.return_value = {"id": "dQw4w9WgXcQ", "ext": "mp4"}
+        mock_ydl.prepare_filename.return_value = "/tmp/frames/dQw4w9WgXcQ.mp4"
+
+        output_dir = Path("/tmp/frames")
+        with patch.object(Path, "exists", return_value=True), patch.object(Path, "mkdir"):
+            result = download_frame_source("dQw4w9WgXcQ", output_dir)
+
+        opts = mock_ydl_cls.call_args[0][0]
+        assert opts["format"] == "18/best[height<=480][tbr<=1000][vcodec!=none]/worst[vcodec!=none]"
+        assert opts["noplaylist"] is True
+        assert result.name == "dQw4w9WgXcQ.mp4"
+
+    @patch("yt_dlp.YoutubeDL")
+    def test_uses_proxy_cookies_and_client(self, mock_ydl_cls: MagicMock) -> None:
+        mock_ydl = MagicMock()
+        mock_ydl_cls.return_value.__enter__ = MagicMock(return_value=mock_ydl)
+        mock_ydl_cls.return_value.__exit__ = MagicMock(return_value=False)
+        mock_ydl.extract_info.return_value = {"id": "dQw4w9WgXcQ", "ext": "mp4"}
+        mock_ydl.prepare_filename.return_value = "/tmp/frames/dQw4w9WgXcQ.mp4"
+
+        output_dir = Path("/tmp/frames")
+        with patch.object(Path, "exists", return_value=True), patch.object(Path, "mkdir"):
+            download_frame_source(
+                "dQw4w9WgXcQ",
+                output_dir,
+                proxy="http://proxy:8080",
+                cookies_from_browser="firefox",
+                client="ios",
+            )
+
+        opts = mock_ydl_cls.call_args[0][0]
+        assert opts["proxy"] == "http://proxy:8080"
+        assert opts["cookiesfrombrowser"] == ["firefox"]
+        assert "iPhone" in opts["user_agent"]
+        assert opts["extractor_args"]["youtube"]["player_client"] == "ios"
 
 
 class TestDownloadVideo:
