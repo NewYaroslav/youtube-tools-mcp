@@ -127,6 +127,44 @@ class TestGetYoutubeVideoContext:
         assert data["metadata"]["title"] == "Fallback Video"
         assert data["metadata_warnings"] == ["youtube-data-api failed: API quota exceeded"]
 
+    @patch("youtube_tools_mcp.tools.video_context.fetch_video_metadata")
+    @patch("youtube_tools_mcp.tools.video_context.TranscriptFetcher")
+    def test_passes_timeout_options(
+        self,
+        mock_fetcher_cls: MagicMock,
+        mock_fetch_metadata: MagicMock,
+    ) -> None:
+        mock_fetch_metadata.return_value = YouTubeVideoMetadata(
+            video_id=SAMPLE_VIDEO_ID,
+            video_url=f"https://www.youtube.com/watch?v={SAMPLE_VIDEO_ID}",
+            title="Timeout Video",
+            source="yt-dlp",
+        )
+        mock_fetcher = mock_fetcher_cls.return_value
+        mock_fetcher.fetch.return_value = "[00:00] Hello"
+
+        get_youtube_video_context(
+            SAMPLE_VIDEO_ID,
+            transcript_api_timeout=9.0,
+            ytdlp_socket_timeout=30.0,
+        )
+
+        mock_fetch_metadata.assert_called_once_with(
+            SAMPLE_VIDEO_ID,
+            include_channel_description=True,
+            proxy=None,
+            cookies_from_browser=None,
+            client="web",
+            ytdlp_socket_timeout=30.0,
+        )
+        mock_fetcher_cls.assert_called_once_with(
+            proxy_url=None,
+            cookies_from_browser=None,
+            client="web",
+            transcript_api_timeout=9.0,
+            ytdlp_socket_timeout=30.0,
+        )
+
     def test_invalid_url_raises_mcp_error(self) -> None:
         with pytest.raises(McpError, match="Cannot extract YouTube video ID"):
             get_youtube_video_context("not_a_valid_id")

@@ -17,6 +17,7 @@ def get_youtube_video_metadata(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    ytdlp_socket_timeout: float | None = None,
 ) -> str:
     """Fetch YouTube video metadata and channel information.
 
@@ -26,6 +27,7 @@ def get_youtube_video_metadata(
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
+        ytdlp_socket_timeout: Timeout in seconds for yt-dlp socket operations.
 
     Returns:
         Pretty JSON with video description, channel URL, and optional channel description.
@@ -42,6 +44,7 @@ def get_youtube_video_metadata(
             proxy=proxy,
             cookies_from_browser=cookies_from_browser,
             client=client,
+            ytdlp_socket_timeout=ytdlp_socket_timeout,
         )
     except MetadataError as exc:
         raise _err(

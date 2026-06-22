@@ -29,3 +29,9 @@ def mock_youtube_transcript_api() -> MagicMock:
         snippets.append(snippet)
     mock_api.fetch.return_value = snippets
     return mock_api
+
+
+@pytest.fixture(autouse=True)
+def _clear_timeout_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT", raising=False)
+    monkeypatch.delenv("YOUTUBE_TOOLS_YTDLP_SOCKET_TIMEOUT", raising=False)

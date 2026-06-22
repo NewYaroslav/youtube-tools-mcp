@@ -647,6 +647,42 @@ class TestFetchTranscriptViaYtdlp:
         with pytest.raises(TranscriptFetchError, match="HTTP 429"):
             fetch_transcript_via_ytdlp(SAMPLE_VIDEO_ID, languages=("en",))
 
+    @patch("yt_dlp.YoutubeDL")
+    def test_sets_ytdlp_socket_timeout(self, mock_ytdl_cls: MagicMock) -> None:
+        _mock_ytdlp_context(
+            mock_ytdl_cls,
+            {
+                "automatic_captions": {
+                    "en": [
+                        {
+                            "ext": "json3",
+                            "data": json.dumps(
+                                {
+                                    "events": [
+                                        {
+                                            "tStartMs": 1000,
+                                            "dDurationMs": 1000,
+                                            "segs": [{"utf8": "Timeout"}],
+                                        }
+                                    ]
+                                }
+                            ),
+                        }
+                    ],
+                },
+            },
+        )
+
+        result = fetch_transcript_via_ytdlp(
+            SAMPLE_VIDEO_ID,
+            languages=("en",),
+            ytdlp_socket_timeout=17.5,
+        )
+
+        assert result == "[00:01] Timeout"
+        opts = mock_ytdl_cls.call_args[0][0]
+        assert opts["socket_timeout"] == 17.5
+
 
 class TestTranscriptFetcherProxy:
     @patch.dict("os.environ", {"HTTPS_PROXY": "http://127.0.0.1:8080"})
@@ -680,3 +716,39 @@ class TestTranscriptFetcherProxy:
 
         call_kwargs = mock_api_cls.call_args[1]
         assert call_kwargs["http_client"].timeout == 3.5
+
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    def test_init_uses_explicit_transcript_api_timeout(self, mock_api_cls: MagicMock) -> None:
+        TranscriptFetcher(transcript_api_timeout=8.5)
+
+        call_kwargs = mock_api_cls.call_args[1]
+        assert call_kwargs["http_client"].timeout == 8.5
+
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    @pytest.mark.parametrize(
+        "value",
+        ["nan", "inf", "-inf", float("nan"), float("inf"), float("-inf"), 0, -1],
+    )
+    def test_init_rejects_invalid_explicit_transcript_api_timeout(
+        self,
+        _mock_api_cls: MagicMock,
+        value: object,
+    ) -> None:
+        with pytest.raises(TranscriptFetchError, match="transcript_api_timeout must be a positive finite number"):
+            TranscriptFetcher(transcript_api_timeout=value)
+
+    @patch("youtube_tools_mcp.youtube.transcript.YouTubeTranscriptApi")
+    @pytest.mark.parametrize("value", ["abc", "nan", "inf", "-inf", "0", "-1"])
+    def test_init_rejects_invalid_transcript_api_timeout_from_environment(
+        self,
+        _mock_api_cls: MagicMock,
+        value: str,
+    ) -> None:
+        with (
+            patch.dict("os.environ", {"YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT": value}, clear=True),
+            pytest.raises(
+                TranscriptFetchError,
+                match="YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT must be a positive finite number",
+            ),
+        ):
+            TranscriptFetcher()

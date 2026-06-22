@@ -59,6 +59,8 @@ def get_youtube_transcript(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    transcript_api_timeout: float | None = None,
+    ytdlp_socket_timeout: float | None = None,
 ) -> str:
     """Extract transcript/subtitles from a YouTube video.
 
@@ -76,8 +78,18 @@ def get_youtube_transcript(
             "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
+        transcript_api_timeout: Timeout in seconds for each youtube-transcript-api HTTP request.
+        ytdlp_socket_timeout: Timeout in seconds for yt-dlp socket operations.
     """
-    return _get_youtube_transcript(url_or_id, languages, proxy, cookies_from_browser, client)
+    return _get_youtube_transcript(
+        url_or_id,
+        languages,
+        proxy,
+        cookies_from_browser,
+        client,
+        transcript_api_timeout,
+        ytdlp_socket_timeout,
+    )
 
 
 @mcp.tool()
@@ -87,6 +99,7 @@ def get_youtube_video_metadata(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    ytdlp_socket_timeout: float | None = None,
 ) -> str:
     """Fetch YouTube video metadata and channel information.
 
@@ -104,8 +117,16 @@ def get_youtube_video_metadata(
             "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
+        ytdlp_socket_timeout: Timeout in seconds for yt-dlp socket operations.
     """
-    return _get_youtube_video_metadata(url_or_id, include_channel_description, proxy, cookies_from_browser, client)
+    return _get_youtube_video_metadata(
+        url_or_id,
+        include_channel_description,
+        proxy,
+        cookies_from_browser,
+        client,
+        ytdlp_socket_timeout,
+    )
 
 
 @mcp.tool()
@@ -116,6 +137,8 @@ def get_youtube_video_context(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    transcript_api_timeout: float | None = None,
+    ytdlp_socket_timeout: float | None = None,
 ) -> str:
     """Fetch transcript plus video and channel metadata.
 
@@ -133,6 +156,8 @@ def get_youtube_video_context(
             "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
+        transcript_api_timeout: Timeout in seconds for each youtube-transcript-api HTTP request.
+        ytdlp_socket_timeout: Timeout in seconds for yt-dlp socket operations.
     """
     return _get_youtube_video_context(
         url_or_id,
@@ -141,6 +166,8 @@ def get_youtube_video_context(
         proxy,
         cookies_from_browser,
         client,
+        transcript_api_timeout,
+        ytdlp_socket_timeout,
     )
 
 
@@ -455,6 +482,7 @@ def download_video(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    ytdlp_socket_timeout: float | None = None,
 ) -> str:
     """Download a YouTube video to a local file.
 
@@ -470,8 +498,17 @@ def download_video(
             "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
+        ytdlp_socket_timeout: Timeout in seconds for yt-dlp socket operations.
     """
-    return _download_video_file(url_or_id, output_dir, quality, proxy, cookies_from_browser, client)
+    return _download_video_file(
+        url_or_id,
+        output_dir,
+        quality,
+        proxy,
+        cookies_from_browser,
+        client,
+        ytdlp_socket_timeout,
+    )
 
 
 @mcp.tool()
@@ -482,6 +519,7 @@ def download_audio(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    ytdlp_socket_timeout: float | None = None,
 ) -> str:
     """Download audio only from a YouTube video to a local file.
 
@@ -499,8 +537,17 @@ def download_audio(
             "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
+        ytdlp_socket_timeout: Timeout in seconds for yt-dlp socket operations.
     """
-    return _download_audio_file(url_or_id, output_dir, audio_format, proxy, cookies_from_browser, client)
+    return _download_audio_file(
+        url_or_id,
+        output_dir,
+        audio_format,
+        proxy,
+        cookies_from_browser,
+        client,
+        ytdlp_socket_timeout,
+    )
 
 
 @mcp.tool()

@@ -33,6 +33,8 @@ def get_youtube_video_context(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    transcript_api_timeout: float | None = None,
+    ytdlp_socket_timeout: float | None = None,
 ) -> str:
     """Fetch transcript plus video and channel metadata.
 
@@ -46,6 +48,8 @@ def get_youtube_video_context(
             "chrome", "firefox", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
+        transcript_api_timeout: Timeout in seconds for each youtube-transcript-api HTTP request.
+        ytdlp_socket_timeout: Timeout in seconds for yt-dlp socket operations.
 
     Returns:
         Pretty JSON with metadata and timestamped transcript text.
@@ -69,6 +73,7 @@ def get_youtube_video_context(
             proxy=proxy,
             cookies_from_browser=cookies_from_browser,
             client=client,
+            ytdlp_socket_timeout=ytdlp_socket_timeout,
         )
     except MetadataError as exc:
         metadata_error = (
@@ -78,12 +83,14 @@ def get_youtube_video_context(
             "or try cookies_from_browser (e.g. 'chrome', 'firefox'), or try client='android'."
         )
 
-    fetcher = TranscriptFetcher(
-        proxy_url=proxy,
-        cookies_from_browser=cookies_from_browser,
-        client=client,
-    )
     try:
+        fetcher = TranscriptFetcher(
+            proxy_url=proxy,
+            cookies_from_browser=cookies_from_browser,
+            client=client,
+            transcript_api_timeout=transcript_api_timeout,
+            ytdlp_socket_timeout=ytdlp_socket_timeout,
+        )
         transcript = fetcher.fetch(video_id, languages=tuple(languages))
     except TranscriptsDisabledError as exc:
         raise _err(f"Transcripts are disabled for this video: {exc}") from exc

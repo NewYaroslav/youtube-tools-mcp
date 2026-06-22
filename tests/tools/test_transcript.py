@@ -101,6 +101,8 @@ class TestGetYoutubeTranscript:
             proxy_url="http://proxy:8080",
             cookies_from_browser=None,
             client="web",
+            transcript_api_timeout=None,
+            ytdlp_socket_timeout=None,
         )
         mock_fetcher.fetch.assert_called_once_with(SAMPLE_VIDEO_ID, languages=("ru", "en"))
 
@@ -119,6 +121,8 @@ class TestGetYoutubeTranscript:
             proxy_url="http://proxy:8080",
             cookies_from_browser="firefox",
             client="android",
+            transcript_api_timeout=None,
+            ytdlp_socket_timeout=None,
         )
 
     @patch("youtube_tools_mcp.tools.transcript.TranscriptFetcher")
@@ -133,6 +137,8 @@ class TestGetYoutubeTranscript:
             proxy_url=None,
             cookies_from_browser="firefox",
             client="web",
+            transcript_api_timeout=None,
+            ytdlp_socket_timeout=None,
         )
 
     @patch("youtube_tools_mcp.tools.transcript.TranscriptFetcher")
@@ -151,6 +157,8 @@ class TestGetYoutubeTranscript:
             proxy_url=None,
             cookies_from_browser="chrome",
             client="web",
+            transcript_api_timeout=None,
+            ytdlp_socket_timeout=None,
         )
 
     @patch("youtube_tools_mcp.tools.transcript.TranscriptFetcher")
@@ -169,6 +177,8 @@ class TestGetYoutubeTranscript:
             proxy_url=None,
             cookies_from_browser=None,
             client="web",
+            transcript_api_timeout=None,
+            ytdlp_socket_timeout=None,
         )
 
     @patch("youtube_tools_mcp.tools.transcript.TranscriptFetcher")
@@ -187,4 +197,25 @@ class TestGetYoutubeTranscript:
             proxy_url=None,
             cookies_from_browser=None,
             client="web",
+            transcript_api_timeout=None,
+            ytdlp_socket_timeout=None,
+        )
+
+    @patch("youtube_tools_mcp.tools.transcript.TranscriptFetcher")
+    def test_passes_timeout_options_to_fetcher(self, mock_fetcher_cls: MagicMock) -> None:
+        mock_fetcher = mock_fetcher_cls.return_value
+        mock_fetcher.fetch.return_value = "[00:00] Test"
+
+        get_youtube_transcript(
+            SAMPLE_VIDEO_ID,
+            transcript_api_timeout=12.5,
+            ytdlp_socket_timeout=30.0,
+        )
+
+        mock_fetcher_cls.assert_called_once_with(
+            proxy_url=None,
+            cookies_from_browser=None,
+            client="web",
+            transcript_api_timeout=12.5,
+            ytdlp_socket_timeout=30.0,
         )
