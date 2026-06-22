@@ -243,8 +243,8 @@ When installed via `uvx` from an MCP client, the server may run outside your pro
 | `YOUTUBE_API_KEY` | No | Enables YouTube Data API features (metadata, search). Core tools work without it. |
 | `HTTPS_PROXY` / `HTTP_PROXY` | No | HTTP/HTTPS proxy for all outgoing requests (transcripts, metadata, downloads). Checked in order: `HTTPS_PROXY`, `https_proxy`, `HTTP_PROXY`, `http_proxy`. |
 | `YOUTUBE_TOOLS_COOKIES_FROM_BROWSER` | No | Default browser cookie source for `get_youtube_transcript` when the tool call does not pass `cookies_from_browser`. Example: `firefox`. |
-| `YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT` | No | Per-request HTTP timeout in seconds for individual requests made by `youtube-transcript-api`. Defaults to `5`. Keeping this small helps the tool reach yt-dlp/Data API fallbacks before MCP client-level timeouts. |
-| `YOUTUBE_TOOLS_YTDLP_SOCKET_TIMEOUT` | No | Default socket timeout in seconds for yt-dlp network operations. Can be overridden per call with `ytdlp_socket_timeout` on supported tools. |
+| `YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT` | No | Positive finite per-request HTTP timeout in seconds for individual requests made by `youtube-transcript-api`. Defaults to `5`. Keeping this small helps the tool reach yt-dlp/Data API fallbacks before MCP client-level timeouts. |
+| `YOUTUBE_TOOLS_YTDLP_SOCKET_TIMEOUT` | No | Positive finite default socket timeout in seconds for yt-dlp network operations. Can be overridden per call with `ytdlp_socket_timeout` on supported tools. |
 | `YOUTUBE_TOOLS_VISION_BASE_URL` | For vision analysis | OpenAI-compatible base URL. Falls back to `OPENAI_BASE_URL`, then `ANTHROPIC_BASE_URL` + `/v1`. |
 | `YOUTUBE_TOOLS_VISION_API_KEY` | For vision analysis | API token. Falls back to `OPENAI_API_KEY`. |
 | `YOUTUBE_TOOLS_VISION_MODEL` | For vision analysis | Vision-capable model. Falls back to `OPENAI_VISION_MODEL`, `ANTHROPIC_TOOL_USE_MODEL`, then `ANTHROPIC_MODEL`. |
@@ -259,6 +259,8 @@ There are two timeout layers:
 
 1. **MCP client call timeout** is controlled by the calling application, not by this server. For example, an agent may abort a tool call after 90 seconds even if the server is still working. For long video/audio downloads, raise the MCP client's call timeout or pass its call-level timeout option if the client supports one.
 2. **Server-side network timeouts** are controlled by this server. They prevent individual network operations from hanging forever and can be set per call or with environment variables.
+
+Timeout values must be positive finite numbers. Invalid values such as `0`, negative numbers, `nan`, `inf`, or non-numeric strings are rejected instead of being silently ignored.
 
 Supported per-call timeout parameters:
 

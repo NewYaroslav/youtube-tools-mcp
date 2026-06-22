@@ -85,8 +85,8 @@ Uses: yt-dlp + ffmpeg (required for audio extraction/conversion)
 
 ## Environment Variables
 - `YOUTUBE_API_KEY` — optional, enables YouTube Data API features (not yet implemented)
-- `YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT` — optional, per-request timeout for youtube-transcript-api (default 5 seconds)
-- `YOUTUBE_TOOLS_YTDLP_SOCKET_TIMEOUT` — optional, default socket timeout for yt-dlp network operations
+- `YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT` — optional positive finite per-request timeout for youtube-transcript-api (default 5 seconds)
+- `YOUTUBE_TOOLS_YTDLP_SOCKET_TIMEOUT` — optional positive finite default socket timeout for yt-dlp network operations
 - Read via `os.environ.get("YOUTUBE_API_KEY")` with None fallback
 - Never hardcode, never log, never include in error messages
 
@@ -94,11 +94,11 @@ Uses: yt-dlp + ffmpeg (required for audio extraction/conversion)
 - `uv run python -m youtube_tools_mcp.server` — run the MCP server
 - `uv run ruff check .` — lint
 - `uv run ruff format .` — format
-- `uv run pytest` — run tests (353 tests)
+- `uv run pytest` — run tests (380 tests)
 - `uv add <package>` — add dependency
 
 ## Testing Strategy
-- Unit tests for each tool with mocked YouTube responses (353 tests)
+- Unit tests for each tool with mocked YouTube responses (380 tests)
 - All external calls (youtube-transcript-api, yt-dlp, ffmpeg) are mocked
 - No network calls in test suite
 - `pytest-asyncio` for async MCP handler tests

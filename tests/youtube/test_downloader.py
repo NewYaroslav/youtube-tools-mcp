@@ -69,6 +69,25 @@ class TestGetStreamUrl:
         opts = mock_ydl_cls.call_args[0][0]
         assert opts["socket_timeout"] == 11.0
 
+    @pytest.mark.parametrize(
+        "value",
+        ["nan", "inf", "-inf", float("nan"), float("inf"), float("-inf"), 0, -1],
+    )
+    def test_rejects_invalid_ytdlp_socket_timeout(self, value: object) -> None:
+        with pytest.raises(DownloadError, match="ytdlp_socket_timeout must be a positive finite number"):
+            get_stream_url("dQw4w9WgXcQ", ytdlp_socket_timeout=value)
+
+    @pytest.mark.parametrize("value", ["abc", "nan", "inf", "-inf", "0", "-1"])
+    def test_rejects_invalid_ytdlp_socket_timeout_from_environment(self, value: str) -> None:
+        with (
+            patch.dict("os.environ", {"YOUTUBE_TOOLS_YTDLP_SOCKET_TIMEOUT": value}, clear=True),
+            pytest.raises(
+                DownloadError,
+                match="YOUTUBE_TOOLS_YTDLP_SOCKET_TIMEOUT must be a positive finite number",
+            ),
+        ):
+            get_stream_url("dQw4w9WgXcQ")
+
     @patch("yt_dlp.YoutubeDL")
     def test_raises_stream_url_error_when_no_url(self, mock_ydl_cls: MagicMock) -> None:
         _mock_ytdl_context(mock_ydl_cls, {"url": None, "duration": 120.0})

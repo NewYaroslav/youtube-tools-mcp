@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import shutil
 import subprocess
@@ -42,9 +43,9 @@ def _positive_timeout(value: object, name: str) -> float:
     try:
         timeout = float(value)
     except (TypeError, ValueError) as exc:
-        raise DownloadError(f"{name} must be a positive number") from exc
-    if timeout <= 0:
-        raise DownloadError(f"{name} must be positive")
+        raise DownloadError(f"{name} must be a positive finite number") from exc
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise DownloadError(f"{name} must be a positive finite number")
     return timeout
 
 

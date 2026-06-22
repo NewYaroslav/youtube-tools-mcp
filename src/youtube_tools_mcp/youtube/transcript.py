@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import json
+import math
 import os
 import re
 import tempfile
@@ -65,9 +66,9 @@ def _positive_timeout(value: object, name: str) -> float:
     try:
         timeout = float(value)
     except (TypeError, ValueError) as exc:
-        raise TranscriptFetchError(f"{name} must be a positive number") from exc
-    if timeout <= 0:
-        raise TranscriptFetchError(f"{name} must be positive")
+        raise TranscriptFetchError(f"{name} must be a positive finite number") from exc
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise TranscriptFetchError(f"{name} must be a positive finite number")
     return timeout
 
 
@@ -78,11 +79,7 @@ def _youtube_transcript_api_request_timeout(timeout: float | None = None) -> flo
     raw = os.environ.get(YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT_ENV)
     if raw is None or not raw.strip():
         return DEFAULT_YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT
-    try:
-        timeout = float(raw)
-    except ValueError:
-        return DEFAULT_YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT
-    return timeout if timeout > 0 else DEFAULT_YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT
+    return _positive_timeout(raw, YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT_ENV)
 
 
 def _map_exception(exc: Exception) -> TranscriptError:
