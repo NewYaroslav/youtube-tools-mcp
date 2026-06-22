@@ -171,6 +171,18 @@ class TestFetchVideoMetadataYtdlp:
         assert opts["extractor_args"]["youtube"]["player_client"] == "android"
 
     @patch("yt_dlp.YoutubeDL")
+    def test_uses_ytdlp_socket_timeout_when_set(self, mock_ydl_cls: MagicMock) -> None:
+        mock_ydl = MagicMock()
+        mock_ydl_cls.return_value.__enter__ = MagicMock(return_value=mock_ydl)
+        mock_ydl_cls.return_value.__exit__ = MagicMock(return_value=False)
+        mock_ydl.extract_info.return_value = {"title": "Timeout Test", "duration": 60}
+
+        fetch_video_metadata_ytdlp(SAMPLE_VIDEO_ID, ytdlp_socket_timeout=13.0)
+
+        opts = mock_ydl_cls.call_args[0][0]
+        assert opts["socket_timeout"] == 13.0
+
+    @patch("yt_dlp.YoutubeDL")
     def test_no_proxy_when_not_set(self, mock_ydl_cls: MagicMock) -> None:
         mock_ydl = MagicMock()
         mock_ydl_cls.return_value.__enter__ = MagicMock(return_value=mock_ydl)

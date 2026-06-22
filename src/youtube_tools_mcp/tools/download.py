@@ -26,6 +26,7 @@ def download_video_file(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    ytdlp_socket_timeout: float | None = None,
 ) -> str:
     """Download a YouTube video to a local file.
 
@@ -36,6 +37,7 @@ def download_video_file(
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
+        ytdlp_socket_timeout: Timeout in seconds for yt-dlp socket operations.
 
     Returns:
         Absolute path to the downloaded video file.
@@ -49,7 +51,13 @@ def download_video_file(
 
     try:
         path = download_video(
-            video_id, out, quality, proxy=proxy, cookies_from_browser=cookies_from_browser, client=client
+            video_id,
+            out,
+            quality,
+            proxy=proxy,
+            cookies_from_browser=cookies_from_browser,
+            client=client,
+            ytdlp_socket_timeout=ytdlp_socket_timeout,
         )
         return str(path)
     except FFmpegNotFoundError as exc:
@@ -77,6 +85,7 @@ def download_audio_file(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    ytdlp_socket_timeout: float | None = None,
 ) -> str:
     """Download audio only from a YouTube video to a local file.
 
@@ -89,6 +98,7 @@ def download_audio_file(
         proxy: Optional proxy URL (e.g. http://user:pass@host:port).
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
+        ytdlp_socket_timeout: Timeout in seconds for yt-dlp socket operations.
 
     Returns:
         Absolute path to the downloaded audio file.
@@ -102,7 +112,13 @@ def download_audio_file(
 
     try:
         path = download_audio(
-            video_id, out, audio_format, proxy=proxy, cookies_from_browser=cookies_from_browser, client=client
+            video_id,
+            out,
+            audio_format,
+            proxy=proxy,
+            cookies_from_browser=cookies_from_browser,
+            client=client,
+            ytdlp_socket_timeout=ytdlp_socket_timeout,
         )
         return str(path)
     except FFmpegNotFoundError as exc:

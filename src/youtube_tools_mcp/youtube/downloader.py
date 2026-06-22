@@ -7,6 +7,8 @@ from pathlib import Path
 
 from youtube_tools_mcp.utils.proxy import get_proxy_url
 
+YTDLP_SOCKET_TIMEOUT_ENV = "YOUTUBE_TOOLS_YTDLP_SOCKET_TIMEOUT"
+
 
 class DownloadError(Exception):
     """Base exception for download operations."""
@@ -34,6 +36,31 @@ class StreamUrlError(DownloadError):
 
 class VideoDownloadError(DownloadError):
     """Video download failed."""
+
+
+def _positive_timeout(value: object, name: str) -> float:
+    try:
+        timeout = float(value)
+    except (TypeError, ValueError) as exc:
+        raise DownloadError(f"{name} must be a positive number") from exc
+    if timeout <= 0:
+        raise DownloadError(f"{name} must be positive")
+    return timeout
+
+
+def _env_ytdlp_socket_timeout() -> float | None:
+    raw = os.environ.get(YTDLP_SOCKET_TIMEOUT_ENV)
+    if raw is None or not raw.strip():
+        return None
+    return _positive_timeout(raw, YTDLP_SOCKET_TIMEOUT_ENV)
+
+
+def _apply_ytdlp_socket_timeout(ydl_opts: dict, socket_timeout: float | None = None) -> None:
+    timeout = _positive_timeout(socket_timeout, "ytdlp_socket_timeout") if socket_timeout is not None else None
+    if timeout is None:
+        timeout = _env_ytdlp_socket_timeout()
+    if timeout is not None:
+        ydl_opts["socket_timeout"] = timeout
 
 
 def _apply_client_options(ydl_opts: dict, client: str) -> None:
@@ -95,6 +122,7 @@ def get_stream_url(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    ytdlp_socket_timeout: float | None = None,
 ) -> tuple[str, float]:
     """Get a direct video stream URL and duration via yt-dlp without downloading.
 
@@ -119,6 +147,7 @@ def get_stream_url(
         ydl_opts["proxy"] = resolved
     if cookies_from_browser:
         ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
+    _apply_ytdlp_socket_timeout(ydl_opts, ytdlp_socket_timeout)
     _apply_client_options(ydl_opts, client)
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -143,6 +172,7 @@ def get_video_duration(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    ytdlp_socket_timeout: float | None = None,
 ) -> float:
     """Get video duration in seconds via yt-dlp without downloading.
 
@@ -162,6 +192,7 @@ def get_video_duration(
         ydl_opts["proxy"] = resolved
     if cookies_from_browser:
         ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
+    _apply_ytdlp_socket_timeout(ydl_opts, ytdlp_socket_timeout)
     _apply_client_options(ydl_opts, client)
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -230,6 +261,7 @@ def download_frame_source(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    ytdlp_socket_timeout: float | None = None,
 ) -> Path:
     """Download a small local video file suitable for frame extraction.
 
@@ -254,6 +286,7 @@ def download_frame_source(
         ydl_opts["proxy"] = resolved
     if cookies_from_browser:
         ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
+    _apply_ytdlp_socket_timeout(ydl_opts, ytdlp_socket_timeout)
     _apply_client_options(ydl_opts, client)
 
     try:
@@ -401,6 +434,7 @@ def download_video(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    ytdlp_socket_timeout: float | None = None,
 ) -> Path:
     """Download a YouTube video using yt-dlp.
 
@@ -435,6 +469,7 @@ def download_video(
         ydl_opts["proxy"] = resolved
     if cookies_from_browser:
         ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
+    _apply_ytdlp_socket_timeout(ydl_opts, ytdlp_socket_timeout)
     _apply_client_options(ydl_opts, client)
 
     try:
@@ -469,6 +504,7 @@ def download_audio(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    ytdlp_socket_timeout: float | None = None,
 ) -> Path:
     """Download audio only from a YouTube video using yt-dlp + ffmpeg.
 
@@ -509,6 +545,7 @@ def download_audio(
         ydl_opts["proxy"] = resolved
     if cookies_from_browser:
         ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
+    _apply_ytdlp_socket_timeout(ydl_opts, ytdlp_socket_timeout)
     _apply_client_options(ydl_opts, client)
 
     try:

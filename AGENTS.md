@@ -46,8 +46,8 @@ youtube-tools-mcp/
 
 ## MCP Tools
 
-### get_youtube_transcript(url_or_id, languages=["ru","en"])
-Input: video URL or ID, optional language code list
+### get_youtube_transcript(url_or_id, languages=["ru","en"], transcript_api_timeout=None, ytdlp_socket_timeout=None)
+Input: video URL or ID, optional language code list and timeout overrides
 Output: transcript text with timestamps [MM:SS] per line
 Uses: youtube-transcript-api (no key required)
 
@@ -73,18 +73,20 @@ Uses: direct YouTube stream first; falls back to yt-dlp low-resolution local sou
 
 Frame output paths are resolved to absolute paths inside the MCP server process. Relative output_dir values are relative to the server working directory, not necessarily the caller workspace.
 
-### download_video(url_or_id, output_dir=".", quality="720p")
-Input: video URL or ID, output directory, quality preset ("best", "720p", "480p", "360p")
+### download_video(url_or_id, output_dir=".", quality="720p", ytdlp_socket_timeout=None)
+Input: video URL or ID, output directory, quality preset ("best", "720p", "480p", "360p"), optional yt-dlp socket timeout
 Output: absolute path to downloaded MP4 file
 Uses: yt-dlp (no ffmpeg required)
 
-### download_audio(url_or_id, output_dir=".", audio_format="mp3")
-Input: video URL or ID, output directory, audio format ("mp3", "m4a", "opus", "wav")
+### download_audio(url_or_id, output_dir=".", audio_format="mp3", ytdlp_socket_timeout=None)
+Input: video URL or ID, output directory, audio format ("mp3", "m4a", "opus", "wav"), optional yt-dlp socket timeout
 Output: absolute path to downloaded audio file
 Uses: yt-dlp + ffmpeg (required for audio extraction/conversion)
 
 ## Environment Variables
 - `YOUTUBE_API_KEY` — optional, enables YouTube Data API features (not yet implemented)
+- `YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT` — optional, per-request timeout for youtube-transcript-api (default 5 seconds)
+- `YOUTUBE_TOOLS_YTDLP_SOCKET_TIMEOUT` — optional, default socket timeout for yt-dlp network operations
 - Read via `os.environ.get("YOUTUBE_API_KEY")` with None fallback
 - Never hardcode, never log, never include in error messages
 
@@ -92,11 +94,11 @@ Uses: yt-dlp + ffmpeg (required for audio extraction/conversion)
 - `uv run python -m youtube_tools_mcp.server` — run the MCP server
 - `uv run ruff check .` — lint
 - `uv run ruff format .` — format
-- `uv run pytest` — run tests (117 tests)
+- `uv run pytest` — run tests (353 tests)
 - `uv add <package>` — add dependency
 
 ## Testing Strategy
-- Unit tests for each tool with mocked YouTube responses (117 tests)
+- Unit tests for each tool with mocked YouTube responses (353 tests)
 - All external calls (youtube-transcript-api, yt-dlp, ffmpeg) are mocked
 - No network calls in test suite
 - `pytest-asyncio` for async MCP handler tests

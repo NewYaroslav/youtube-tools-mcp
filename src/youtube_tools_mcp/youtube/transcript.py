@@ -24,6 +24,7 @@ from youtube_tools_mcp.utils.proxy import get_proxy_url
 from youtube_tools_mcp.utils.text import format_timestamp
 
 DEFAULT_YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT = 5.0
+YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT_ENV = "YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT"
 
 
 class TranscriptError(Exception):
@@ -60,8 +61,21 @@ class _TimeoutSession(Session):
         return super().request(method, url, **kwargs)
 
 
-def _youtube_transcript_api_request_timeout() -> float:
-    raw = os.environ.get("YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT")
+def _positive_timeout(value: object, name: str) -> float:
+    try:
+        timeout = float(value)
+    except (TypeError, ValueError) as exc:
+        raise TranscriptFetchError(f"{name} must be a positive number") from exc
+    if timeout <= 0:
+        raise TranscriptFetchError(f"{name} must be positive")
+    return timeout
+
+
+def _youtube_transcript_api_request_timeout(timeout: float | None = None) -> float:
+    if timeout is not None:
+        return _positive_timeout(timeout, "transcript_api_timeout")
+
+    raw = os.environ.get(YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT_ENV)
     if raw is None or not raw.strip():
         return DEFAULT_YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT
     try:
@@ -261,6 +275,7 @@ def fetch_transcript_via_ytdlp(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    ytdlp_socket_timeout: float | None = None,
 ) -> str:
     """Fetch transcript via yt-dlp subtitle extraction and downloader."""
     import yt_dlp
@@ -278,11 +293,11 @@ def fetch_transcript_via_ytdlp(
     if cookies_from_browser:
         ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
 
-    from youtube_tools_mcp.youtube.downloader import _apply_client_options
-
-    _apply_client_options(ydl_opts, client)
+    from youtube_tools_mcp.youtube.downloader import _apply_client_options, _apply_ytdlp_socket_timeout
 
     try:
+        _apply_ytdlp_socket_timeout(ydl_opts, ytdlp_socket_timeout)
+        _apply_client_options(ydl_opts, client)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             if info is None:
@@ -316,9 +331,11 @@ class TranscriptFetcher:
         proxy_url: str | None = None,
         cookies_from_browser: str | None = None,
         client: str = "web",
+        transcript_api_timeout: float | None = None,
+        ytdlp_socket_timeout: float | None = None,
     ) -> None:
         resolved = get_proxy_url(proxy_url)
-        http_client = _TimeoutSession(_youtube_transcript_api_request_timeout())
+        http_client = _TimeoutSession(_youtube_transcript_api_request_timeout(transcript_api_timeout))
         if resolved is not None:
             proxy_cfg = GenericProxyConfig(http_url=resolved, https_url=resolved)
             self._api = YouTubeTranscriptApi(proxy_config=proxy_cfg, http_client=http_client)
@@ -327,6 +344,7 @@ class TranscriptFetcher:
         self._proxy_url = resolved
         self._cookies_from_browser = cookies_from_browser
         self._client = client
+        self._ytdlp_socket_timeout = ytdlp_socket_timeout
 
     def _fetch_yta(self, video_id: str, languages: tuple[str, ...]) -> str:
         """Fetch via youtube-transcript-api and format output."""
@@ -346,6 +364,7 @@ class TranscriptFetcher:
             proxy=self._proxy_url,
             cookies_from_browser=self._cookies_from_browser,
             client=self._client,
+            ytdlp_socket_timeout=self._ytdlp_socket_timeout,
         )
 
     def _fetch_via_captions_api(self, video_id: str, languages: tuple[str, ...]) -> str:

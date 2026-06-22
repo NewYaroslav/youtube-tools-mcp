@@ -61,6 +61,15 @@ class TestGetStreamUrl:
         assert opts["extractor_args"]["youtube"]["player_client"] == "android"
 
     @patch("yt_dlp.YoutubeDL")
+    def test_uses_ytdlp_socket_timeout_when_set(self, mock_ydl_cls: MagicMock) -> None:
+        _mock_ytdl_context(mock_ydl_cls, {"url": "https://stream.url/video.mp4", "duration": 210.5})
+
+        get_stream_url("dQw4w9WgXcQ", ytdlp_socket_timeout=11.0)
+
+        opts = mock_ydl_cls.call_args[0][0]
+        assert opts["socket_timeout"] == 11.0
+
+    @patch("yt_dlp.YoutubeDL")
     def test_raises_stream_url_error_when_no_url(self, mock_ydl_cls: MagicMock) -> None:
         _mock_ytdl_context(mock_ydl_cls, {"url": None, "duration": 120.0})
 
@@ -465,12 +474,18 @@ class TestDownloadVideo:
         output_dir = Path("/tmp/downloads")
         with patch.object(Path, "exists", return_value=True), patch.object(Path, "mkdir"):
             result = download_video(
-                "dQw4w9WgXcQ", output_dir, proxy="http://proxy:8080", cookies_from_browser="chrome", client="android"
+                "dQw4w9WgXcQ",
+                output_dir,
+                proxy="http://proxy:8080",
+                cookies_from_browser="chrome",
+                client="android",
+                ytdlp_socket_timeout=15.0,
             )
 
         opts = mock_ydl_cls.call_args[0][0]
         assert opts["proxy"] == "http://proxy:8080"
         assert opts["cookiesfrombrowser"] == ["chrome"]
+        assert opts["socket_timeout"] == 15.0
         assert "Android" in opts["user_agent"]
         assert opts["extractor_args"]["youtube"]["player_client"] == "android"
         assert result.name == "Test.mp4"
@@ -490,12 +505,18 @@ class TestDownloadAudio:
         output_dir = Path("/tmp/downloads")
         with patch.object(Path, "exists", return_value=True), patch.object(Path, "mkdir"):
             result = download_audio(
-                "dQw4w9WgXcQ", output_dir, proxy="http://proxy:8080", cookies_from_browser="firefox", client="ios"
+                "dQw4w9WgXcQ",
+                output_dir,
+                proxy="http://proxy:8080",
+                cookies_from_browser="firefox",
+                client="ios",
+                ytdlp_socket_timeout=15.0,
             )
 
         opts = mock_ydl_cls.call_args[0][0]
         assert opts["proxy"] == "http://proxy:8080"
         assert opts["cookiesfrombrowser"] == ["firefox"]
+        assert opts["socket_timeout"] == 15.0
         assert "iPhone" in opts["user_agent"]
         assert opts["extractor_args"]["youtube"]["player_client"] == "ios"
         assert result.name == "Test.mp3"

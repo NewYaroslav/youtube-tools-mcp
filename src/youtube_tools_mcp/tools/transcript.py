@@ -36,6 +36,8 @@ def get_youtube_transcript(
     proxy: str | None = None,
     cookies_from_browser: str | None = None,
     client: str = "web",
+    transcript_api_timeout: float | None = None,
+    ytdlp_socket_timeout: float | None = None,
 ) -> str:
     """Extract transcript/subtitles from a YouTube video.
 
@@ -48,6 +50,8 @@ def get_youtube_transcript(
             "chrome", "firefox", "edge", "chrome:Profile 1".
         client: yt-dlp client profile to spoof. Try "android" or "ios" when
             YouTube blocks with bot-check. Defaults to "web".
+        transcript_api_timeout: Timeout in seconds for each youtube-transcript-api HTTP request.
+        ytdlp_socket_timeout: Timeout in seconds for yt-dlp socket operations.
 
     Returns:
         Timestamped transcript text with format [MM:SS] text per line.
@@ -61,12 +65,14 @@ def get_youtube_transcript(
     except ValueError as exc:
         raise _err(str(exc)) from exc
 
-    fetcher = TranscriptFetcher(
-        proxy_url=proxy,
-        cookies_from_browser=cookies_from_browser,
-        client=client,
-    )
     try:
+        fetcher = TranscriptFetcher(
+            proxy_url=proxy,
+            cookies_from_browser=cookies_from_browser,
+            client=client,
+            transcript_api_timeout=transcript_api_timeout,
+            ytdlp_socket_timeout=ytdlp_socket_timeout,
+        )
         return fetcher.fetch(video_id, languages=tuple(languages))
     except TranscriptsDisabledError as exc:
         raise _err(f"Transcripts are disabled for this video: {exc}") from exc

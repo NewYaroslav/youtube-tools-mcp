@@ -67,6 +67,7 @@ class TestDownloadVideoFile:
                 proxy="http://proxy:8080",
                 cookies_from_browser=None,
                 client="web",
+                ytdlp_socket_timeout=None,
             )
 
     def test_passes_client_to_download_video(self, tmp_path: Path) -> None:
@@ -79,7 +80,13 @@ class TestDownloadVideoFile:
         ):
             download_video_file("dQw4w9WgXcQ", str(tmp_path), "720p", client="android")
             mock_dl.assert_called_once_with(
-                "dQw4w9WgXcQ", tmp_path.resolve(), "720p", proxy=None, cookies_from_browser=None, client="android"
+                "dQw4w9WgXcQ",
+                tmp_path.resolve(),
+                "720p",
+                proxy=None,
+                cookies_from_browser=None,
+                client="android",
+                ytdlp_socket_timeout=None,
             )
 
     def test_passes_cookies_from_browser_to_download_video(self, tmp_path: Path) -> None:
@@ -98,6 +105,26 @@ class TestDownloadVideoFile:
                 proxy=None,
                 cookies_from_browser="chrome",
                 client="web",
+                ytdlp_socket_timeout=None,
+            )
+
+    def test_passes_socket_timeout_to_download_video(self, tmp_path: Path) -> None:
+        fake_path = tmp_path / "test_video.mp4"
+        fake_path.write_text("fake")
+
+        with (
+            patch("youtube_tools_mcp.tools.download.extract_video_id", return_value="dQw4w9WgXcQ"),
+            patch("youtube_tools_mcp.tools.download.download_video", return_value=fake_path) as mock_dl,
+        ):
+            download_video_file("dQw4w9WgXcQ", str(tmp_path), "720p", ytdlp_socket_timeout=45.0)
+            mock_dl.assert_called_once_with(
+                "dQw4w9WgXcQ",
+                tmp_path.resolve(),
+                "720p",
+                proxy=None,
+                cookies_from_browser=None,
+                client="web",
+                ytdlp_socket_timeout=45.0,
             )
 
 
@@ -152,7 +179,13 @@ class TestDownloadAudioFile:
         ):
             download_audio_file("dQw4w9WgXcQ", str(tmp_path))
             mock_dl.assert_called_once_with(
-                "dQw4w9WgXcQ", tmp_path.resolve(), "mp3", proxy=None, cookies_from_browser=None, client="web"
+                "dQw4w9WgXcQ",
+                tmp_path.resolve(),
+                "mp3",
+                proxy=None,
+                cookies_from_browser=None,
+                client="web",
+                ytdlp_socket_timeout=None,
             )
 
     def test_passes_proxy_to_download_audio(self, tmp_path: Path) -> None:
@@ -171,6 +204,7 @@ class TestDownloadAudioFile:
                 proxy="http://proxy:8080",
                 cookies_from_browser=None,
                 client="web",
+                ytdlp_socket_timeout=None,
             )
 
     def test_passes_client_to_download_audio(self, tmp_path: Path) -> None:
@@ -183,7 +217,13 @@ class TestDownloadAudioFile:
         ):
             download_audio_file("dQw4w9WgXcQ", str(tmp_path), "mp3", client="ios")
             mock_dl.assert_called_once_with(
-                "dQw4w9WgXcQ", tmp_path.resolve(), "mp3", proxy=None, cookies_from_browser=None, client="ios"
+                "dQw4w9WgXcQ",
+                tmp_path.resolve(),
+                "mp3",
+                proxy=None,
+                cookies_from_browser=None,
+                client="ios",
+                ytdlp_socket_timeout=None,
             )
 
     def test_passes_cookies_from_browser_to_download_audio(self, tmp_path: Path) -> None:
@@ -202,4 +242,24 @@ class TestDownloadAudioFile:
                 proxy=None,
                 cookies_from_browser="firefox",
                 client="web",
+                ytdlp_socket_timeout=None,
+            )
+
+    def test_passes_socket_timeout_to_download_audio(self, tmp_path: Path) -> None:
+        fake_path = tmp_path / "test_audio.mp3"
+        fake_path.write_text("fake")
+
+        with (
+            patch("youtube_tools_mcp.tools.download.extract_video_id", return_value="dQw4w9WgXcQ"),
+            patch("youtube_tools_mcp.tools.download.download_audio", return_value=fake_path) as mock_dl,
+        ):
+            download_audio_file("dQw4w9WgXcQ", str(tmp_path), "mp3", ytdlp_socket_timeout=45.0)
+            mock_dl.assert_called_once_with(
+                "dQw4w9WgXcQ",
+                tmp_path.resolve(),
+                "mp3",
+                proxy=None,
+                cookies_from_browser=None,
+                client="web",
+                ytdlp_socket_timeout=45.0,
             )
