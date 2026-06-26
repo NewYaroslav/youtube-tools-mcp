@@ -64,6 +64,16 @@ def _apply_ytdlp_socket_timeout(ydl_opts: dict, socket_timeout: float | None = N
         ydl_opts["socket_timeout"] = timeout
 
 
+def _base_ytdlp_opts(**overrides: object) -> dict[str, object]:
+    opts: dict[str, object] = {
+        "quiet": True,
+        "no_warnings": True,
+        "noprogress": True,
+    }
+    opts.update(overrides)
+    return opts
+
+
 def _apply_client_options(ydl_opts: dict, client: str) -> None:
     if client == "android":
         ydl_opts["user_agent"] = (
@@ -138,11 +148,7 @@ def get_stream_url(
     import yt_dlp
 
     url = f"https://www.youtube.com/watch?v={video_id}"
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "format": "18",
-    }
+    ydl_opts = _base_ytdlp_opts(format="18")
     resolved = get_proxy_url(proxy)
     if resolved:
         ydl_opts["proxy"] = resolved
@@ -184,10 +190,7 @@ def get_video_duration(
     import yt_dlp
 
     url = f"https://www.youtube.com/watch?v={video_id}"
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-    }
+    ydl_opts = _base_ytdlp_opts()
     resolved = get_proxy_url(proxy)
     if resolved:
         ydl_opts["proxy"] = resolved
@@ -275,13 +278,11 @@ def download_frame_source(
     output_dir.mkdir(parents=True, exist_ok=True)
     out_template = str(output_dir / "%(id)s.%(ext)s")
 
-    ydl_opts = {
-        "format": "18/best[height<=480][tbr<=1000][vcodec!=none]/worst[vcodec!=none]",
-        "outtmpl": out_template,
-        "quiet": True,
-        "no_warnings": True,
-        "noplaylist": True,
-    }
+    ydl_opts = _base_ytdlp_opts(
+        format="18/best[height<=480][tbr<=1000][vcodec!=none]/worst[vcodec!=none]",
+        outtmpl=out_template,
+        noplaylist=True,
+    )
     resolved = get_proxy_url(proxy)
     if resolved:
         ydl_opts["proxy"] = resolved
@@ -458,13 +459,11 @@ def download_video(
     output_dir.mkdir(parents=True, exist_ok=True)
     out_template = str(output_dir / "%(title)s.%(ext)s")
 
-    ydl_opts = {
-        "format": format_spec,
-        "outtmpl": out_template,
-        "quiet": True,
-        "no_warnings": True,
-        "merge_output_format": "mp4",
-    }
+    ydl_opts = _base_ytdlp_opts(
+        format=format_spec,
+        outtmpl=out_template,
+        merge_output_format="mp4",
+    )
     resolved = get_proxy_url(proxy)
     if resolved:
         ydl_opts["proxy"] = resolved
@@ -529,18 +528,16 @@ def download_audio(
     output_dir.mkdir(parents=True, exist_ok=True)
     out_template = str(output_dir / "%(title)s.%(ext)s")
 
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": out_template,
-        "quiet": True,
-        "no_warnings": True,
-        "postprocessors": [
+    ydl_opts = _base_ytdlp_opts(
+        format="bestaudio/best",
+        outtmpl=out_template,
+        postprocessors=[
             {
                 "key": "FFmpegExtractAudioPP",
                 "preferredcodec": _AUDIO_FORMAT_MAP[audio_format],
             }
         ],
-    }
+    )
     resolved = get_proxy_url(proxy)
     if resolved:
         ydl_opts["proxy"] = resolved

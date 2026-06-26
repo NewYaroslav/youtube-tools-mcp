@@ -10,7 +10,7 @@ from urllib.request import ProxyHandler, Request, build_opener, urlopen
 
 from youtube_tools_mcp.utils.proxy import get_proxy_url
 from youtube_tools_mcp.utils.url import normalize_url
-from youtube_tools_mcp.youtube.downloader import _apply_client_options, _apply_ytdlp_socket_timeout
+from youtube_tools_mcp.youtube.downloader import _apply_client_options, _apply_ytdlp_socket_timeout, _base_ytdlp_opts
 
 
 class MetadataError(Exception):
@@ -134,11 +134,7 @@ def fetch_video_metadata_ytdlp(
     """
     import yt_dlp
 
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "skip_download": True,
-    }
+    ydl_opts = _base_ytdlp_opts(skip_download=True)
     resolved = get_proxy_url(proxy)
     if resolved:
         ydl_opts["proxy"] = resolved

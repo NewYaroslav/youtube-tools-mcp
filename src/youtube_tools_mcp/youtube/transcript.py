@@ -23,6 +23,7 @@ from youtube_transcript_api.proxies import GenericProxyConfig
 
 from youtube_tools_mcp.utils.proxy import get_proxy_url
 from youtube_tools_mcp.utils.text import format_timestamp
+from youtube_tools_mcp.youtube.downloader import _apply_client_options, _apply_ytdlp_socket_timeout, _base_ytdlp_opts
 
 DEFAULT_YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT = 5.0
 YOUTUBE_TRANSCRIPT_API_REQUEST_TIMEOUT_ENV = "YOUTUBE_TOOLS_TRANSCRIPT_API_REQUEST_TIMEOUT"
@@ -279,18 +280,12 @@ def fetch_transcript_via_ytdlp(
 
     url = f"https://www.youtube.com/watch?v={video_id}"
 
-    ydl_opts: dict[str, object] = {
-        "quiet": True,
-        "no_warnings": True,
-        "skip_download": True,
-    }
+    ydl_opts = _base_ytdlp_opts(skip_download=True)
     resolved_proxy = get_proxy_url(proxy)
     if resolved_proxy:
         ydl_opts["proxy"] = resolved_proxy
     if cookies_from_browser:
         ydl_opts["cookiesfrombrowser"] = [cookies_from_browser]
-
-    from youtube_tools_mcp.youtube.downloader import _apply_client_options, _apply_ytdlp_socket_timeout
 
     try:
         _apply_ytdlp_socket_timeout(ydl_opts, ytdlp_socket_timeout)
