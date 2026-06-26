@@ -13,6 +13,7 @@ from youtube_tools_mcp.youtube.downloader import (
     FFmpegNotFoundError,
     FFmpegOutputError,
     StreamUrlError,
+    _base_ytdlp_opts,
     download_audio,
     download_frame_source,
     download_video,
@@ -30,6 +31,18 @@ def _mock_ytdl_context(mock_ytdl_cls: MagicMock, info: dict) -> None:
     mock_ydl.extract_info.return_value = info
     mock_ytdl_cls.return_value.__enter__ = MagicMock(return_value=mock_ydl)
     mock_ytdl_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+
+class TestBaseYtdlpOpts:
+    def test_disables_progress_by_default(self) -> None:
+        opts = _base_ytdlp_opts(skip_download=True)
+
+        assert opts == {
+            "quiet": True,
+            "no_warnings": True,
+            "noprogress": True,
+            "skip_download": True,
+        }
 
 
 class TestGetStreamUrl:
