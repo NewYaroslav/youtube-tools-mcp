@@ -10,7 +10,7 @@ from youtube_tools_mcp.utils.url import (
     normalize_url,
     resolve_channel_handle,
 )
-from youtube_tools_mcp.youtube.downloader import _apply_client_options
+from youtube_tools_mcp.youtube.downloader import _apply_client_options, _base_ytdlp_opts
 from youtube_tools_mcp.youtube.metadata import _first_item, _youtube_api_get
 
 
@@ -73,13 +73,11 @@ def _extract_entries_ytdlp(
 ) -> list[dict[str, Any]]:
     import yt_dlp
 
-    ydl_opts: dict[str, Any] = {
-        "quiet": True,
-        "no_warnings": True,
-        "extract_flat": True,
-        "playlistend": max_results,
-        "skip_download": True,
-    }
+    ydl_opts: dict[str, Any] = _base_ytdlp_opts(
+        extract_flat=True,
+        playlistend=max_results,
+        skip_download=True,
+    )
     resolved = get_proxy_url(proxy)
     if resolved:
         ydl_opts["proxy"] = resolved

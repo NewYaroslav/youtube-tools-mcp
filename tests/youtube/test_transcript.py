@@ -450,6 +450,7 @@ class TestFetchTranscriptViaYtdlp:
         opts = mock_ytdl_cls.call_args[0][0]
         assert opts["proxy"] == "http://proxy:8080"
         assert opts["cookiesfrombrowser"] == ["firefox"]
+        assert opts["noprogress"] is True
         assert "Android" in opts["user_agent"]
         mock_ydl.dl.assert_called_once()
 
