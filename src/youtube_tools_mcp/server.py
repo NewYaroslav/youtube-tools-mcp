@@ -26,13 +26,13 @@ from youtube_tools_mcp.tools.images import (
     read_image_file as _read_image_file,
 )
 from youtube_tools_mcp.tools.listing import (
-    list_channel_playlists as _list_channel_playlists,
+    list_channel_playlists_tool as _list_channel_playlists,
 )
 from youtube_tools_mcp.tools.listing import (
-    list_channel_videos as _list_channel_videos,
+    list_channel_videos_tool as _list_channel_videos,
 )
 from youtube_tools_mcp.tools.listing import (
-    list_playlist_videos as _list_playlist_videos,
+    list_playlist_videos_tool as _list_playlist_videos,
 )
 from youtube_tools_mcp.tools.metadata import get_youtube_video_metadata as _get_youtube_video_metadata
 from youtube_tools_mcp.tools.transcript import get_youtube_transcript as _get_youtube_transcript
